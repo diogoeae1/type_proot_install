@@ -2,15 +2,21 @@
 
 # EXPLICAÇÃO SIMPLES DE COMO EU EXECUTO ISSO NORMALMENTE NO MEU CELULAR:
 
-## INSTALE O TERMUX APK E O TERMUX:X11 APK DO F-DROID
+## INSTALE O 'TERMUX' APK E O 'TERMUX:X11' APK DO 'F-DROID'
 https://f-droid.org/pt_BR/packages/com.termux/
 https://github.com/termux/termux-x11/releases
+
+> [!NOTE]
+> **O 'Termux:X11' só está disponível para 'Android 8.0' ou superior.**
+> **Caso esteja em um Android 7.1 ou inferior, recomendo usar VNC no lugar. Mas a experiência não será boa devido a possível latência.**
 
 ## OPCIONALMENTE INSTALE O TERMUX:API
 https://f-droid.org/pt_BR/packages/com.termux.api/
 
 ## ABRA O TERMUX, EXECUTE E PERMITA ACESSO AO ARMAZENAMENTO EXTERNO AO TERMUX:
+```bash
 termux-setup-storage
+```
 
 ## TENHA NA HOME O ARQUIVO.ZIP DAS SEGUINTES FORMAS:
 
@@ -83,3 +89,24 @@ cd ~/storage/shared/Download/ &&\
 > [!NOTE]
 > **Isso deve ser suficiente para ter uma base simplificada disso.**
 > **Acesse meu releases se tiver interesse.**
+
+## Dúvidas comuns:
+
+---
+
+1. Comando 'apt-get update' está reclamando de não haver mirros ou repositórios disponíveis?
+Normalmente re-atualizar os repositórios/mirrors resolve o erro.
+2. Como fazer? **Execute isso:**
+```bash
+termux-change-repo 
+# [*] All mirrors selected
+```
+Deverá abrir uma tela interagivel, se estiver marcado **[*] All mirrors selected**, então não mexa, apenas aperte 'Enter' se certificando que essa mesma opção esteja marca sempre. Após isso, ele atualizará os "mirros" atuais do seu Termux.
+
+3. E se não funcionar?
+Se o método acima **não resolver**, então você terá que resolver manualmente. Procure na internet.
+
+> [!NOTE]
+> O problema não é um mirror problemático, É um mirror antigo que na maioria dos casos foi desprovido do status "ativo".
+
+***
