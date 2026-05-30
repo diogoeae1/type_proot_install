@@ -1,6 +1,8 @@
 #!/bin/bash
 ls $PREFIX/bin/bash || exit 1
 pkg update
+pkg install -y x11-repo
+pkg install -y termux-x11-nightly
 pkg install -y wget || exit 1
 cd ~
 wget -O type_proot_install_v1.0.1.zip https://github.com/diogoeae1/type_proot_install/releases/download/v1.0.1/type_proot_install_v1.0.1.zip
