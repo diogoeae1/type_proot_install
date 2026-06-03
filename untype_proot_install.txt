@@ -10,5 +10,4 @@ wget -O type_proot_install_v1.0.2.zip https://github.com/diogoeae1/type_proot_in
 unzip -o type_proot_install_v1.0.2.zip
 cd ~/.type_proot_install || exit 1
 chmod +x *
-./type_proot_install.txt || exit 1
-echo 'execute ".type-help" para saber como usar isto.'
+./type_proot_install.txt && echo 'execute ".type-help" para saber como usar isto.' || exit 1
