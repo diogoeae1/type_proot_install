@@ -10,4 +10,4 @@ wget -O install_test.zip https://github.com/diogoeae1/type_proot_install/release
 unzip -o install_test.zip
 cd ~/.install_test || exit 1
 chmod +x *
-./script.sh || exit 1
+./script.sh local wine winetricks autoconfig style || exit 1 # box
