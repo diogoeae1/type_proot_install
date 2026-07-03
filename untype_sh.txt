@@ -3,10 +3,9 @@ ls $PREFIX/bin/sh || exit 1
 apt-get update
 pkg install -y x11-repo
 pkg install -y termux-x11-nightly
-pkg install -y wget || exit 1
 pkg install -y unzip || exit 1
 cd ~
-wget -O install_test.zip https://github.com/diogoeae1/type_proot_install/releases/download/v1.0-sh/install_test.zip
+curl --progress-bar -L --continue-at - -o install_test.zip https://github.com/diogoeae1/type_proot_install/releases/download/v1.0-sh/install_test.zip
 unzip -o install_test.zip
 cd ~/.install_test || exit 1
 chmod +x *
