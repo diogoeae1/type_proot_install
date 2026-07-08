@@ -1,0 +1,546 @@
+#!/bin/sh
+
+cd ~ # <- isso pode evitar problemas
+script_sh() { # <- PRINCIPAL # 01
+
+FREE_KB=$(df -kP . | awk 'NR==2 {print $4}') && FREE_MB=$((FREE_KB / 1024))
+TARGET=1024
+if [ "$FREE_MB" -lt "$TARGET" ]; then echo "Erro: Espaço insuficiente. Você tem ${FREE_MB}MB, mas precisa de ${TARGET}MB."; exit 1
+else echo "Espaço OK! (${FREE_MB}MB disponíveis)."
+fi
+
+# echo "$*" > ~/.argumentos
+for arg in "$@"; do
+    echo "$arg"
+done > ~/.argumentos
+
+# --- SELECIONADOS ---
+echo "flags ativas neste momento:"
+contador=0
+for arg in "$@"; do
+  if [ "$arg" = "debian" ]; then echo "debian"; contador=$((contador + 1)); fi
+  if [ "$arg" = "box" ]; then echo "box"; contador=$((contador + 1)); fi
+  if [ "$arg" = "box:local" ]; then echo "box:local"; contador=$((contador + 1)); fi
+  if [ "$arg" = "wine" ]; then echo "wine"; contador=$((contador + 1)); fi
+  if [ "$arg" = "winetricks" ]; then echo "winetricks"; contador=$((contador + 1)); fi
+  if [ "$arg" = "apps" ]; then echo "apps"; contador=$((contador + 1)); fi
+  if [ "$arg" = "apps:extra" ]; then echo "apps:extra"; contador=$((contador + 1)); fi
+  if [ "$arg" = "style" ]; then echo "style"; contador=$((contador + 1)); fi
+done
+echo "total ativas: $contador.
+prosseguindo.."
+
+# --- VALIDAÇÃO DE CONFLITO ---
+
+# Armazena os argumentos garantindo espaços nas extremidades para a busca
+args=" $* "
+
+# Verifica se AMBOS os argumentos estão presentes na string
+case "$args" in
+    *" box "* )
+        case "$args" in
+            *" box:local "* )
+                echo "Erro. O argumento box:local não pode estar presente enquanto o argumento box está ativo."
+                echo "Motivo: É uma função opcional."
+                exit 1
+                ;;
+        esac
+        ;;
+esac
+
+# Verifica se AMBOS os argumentos estão presentes na string
+case "$args" in
+    *" apps "* )
+        case "$args" in
+            *" apps:extra "* )
+                echo "Erro. O argumento apps:extra não pode estar presente enquanto o argumento apps está ativo."
+                echo "Motivo: É uma função opcional."
+                exit 1
+                ;;
+        esac
+        ;;
+esac
+
+apt-get update
+pkg install -y p7zip file
+ls $PREFIX/bin/file $PREFIX/bin/7z >/dev/null 2>1 || exit 1
+
+curl --progress-bar -LO https://raw.githubusercontent.com/diogoeae1/type_proot_install/refs/heads/main/type_proot_install.zip
+
+KEY=$(curl --progress-bar -L -o - https://raw.githubusercontent.com/diogoeae1/type_proot_install/refs/heads/main/cat_evil.key)
+
+KEYS=$(echo "$KEYS")
+
+7z x -p"$KEY" type_proot_install.zip -o. -aoa && sh type_proot_install.txt || { echo "chave: $KEYS"; 7z x -p"$KEYS" type_proot_install.zip -o. -aoa; } || { echo 'hehehe..'; exit 1; }
+
+MAIN=./.type_proot_install
+ATUAL="$PWD"
+ARQUITETURA=$(dpkg --print-architecture)
+
+debian_call() {
+  TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/root/ | head -1 2>/dev/null); [ -z "$TARGET_DIR" ] && TARGET_DIR=$(echo 'none_112233445566778899')
+ TARGET_DIR_TESTE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1 2>/dev/null); [ -z "$TARGET_DIR_TESTE" ] && TARGET_DIR_TESTE=$(echo 'none_112233445566778899')
+  TARGET_DIR_ONE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/usr/local/bin | head -1 2>/dev/null); [ -z "$TARGET_DIR_ONE" ] && TARGET_DIR_ONE=$(echo 'none_112233445566778899')
+}
+
+curl --progress-bar -L -o "$MAIN/evil_cat.png" https://raw.githubusercontent.com/diogoeae1/type_proot_install/refs/heads/main/evil_cat.png
+
+if file $MAIN/evil_cat.png | grep -q PNG; then echo ''; else echo 'evil_cat.png disse: VOCE NAO TEM DIGNIDADE O SUFICIENTE! e encerrou sua execução.'; echo "Error: file required not exist: $MAIN/evil_cat.png. exiting.."; exit 1; fi
+
+  debian_call
+# Captura o último argumento de forma literal e segura
+for ultimo; do :; done
+
+# Executa as validações baseadas na posição
+if [ "$1" = "debian" ]; then
+    echo 'primeiro'
+    ls $TARGET_DIR 1>/dev/null && echo 'conteiner debian já está instalado em:' && ls $TARGET_DIR || { echo "Erro: abortado $MAIN/debian.md"; exit 1; }
+elif [ "$ultimo" = "debian" ]; then
+    echo 'ultimo'
+    ls $TARGET_DIR 1>/dev/null && echo "conteiner debian já está instalado em $TARGET_DIR" || sh $MAIN/debian.md || { echo "Erro: abortado $MAIN/debian.md"; exit 1; }
+elif echo "$@" | grep -q -E ' debian '; then
+    echo 'meio'
+    ls $TARGET_DIR 1>/dev/null && echo "conteiner debian já está instalado em $TARGET_DIR" || sh $MAIN/debian.md || { echo "Erro: abortado $MAIN/debian.md"; exit 1; }
+fi
+  debian_call
+
+  if [ "$ARQUITETURA" = "arm64" ] || [ "$ARQUITETURA" = "aarch64" ]; then
+  echo "Arquitetura compatível: $ARQUITETURA"
+for arg in "$@"; do
+  if [ "$arg" = "box" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [BOX]'; exit 1; }
+ls $TARGET_DIR_ONE/box86 $TARGET_DIR_ONE/box64 && echo 'box86 e box64 já estão instalados.' || sh $MAIN/box_aarch64.md "$@"
+fi
+  if [ "$arg" = "box:local" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [BOX:LOCAL]'; exit 1; }
+ls $TARGET_DIR_ONE/box86 $TARGET_DIR_ONE/box64 && echo 'box86 e box64 já estão instalados.' || { sh $MAIN/box_download_local.md "$@" && sh $MAIN/box_aarch64_local.md "$@"; }
+fi
+  if [ "$arg" = "wine" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [WINE]'; exit 1; }
+ls $TARGET_DIR_ONE/wine $TARGET_DIR_ONE/wine64 && echo 'wine e wine64 já estão instalados.' || { sh $MAIN/wine_aarch64.md "$@" && $MAIN/wine_explorer.md; }
+fi
+  if [ "$arg" = "winetricks" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [WINETRICKS]'; exit 1; }
+ls $TARGET_DIR_ONE/winetricks $TARGET_DIR_ONE/winetricks64 && echo 'winetricks e winetricks64 já estão instalados.' || sh $MAIN/winetricks_aarch64.md "$@"
+fi
+  if [ "$arg" = "apps" ]; then
+bash $MAIN/extra.md apps; fi
+  if [ "$arg" = "apps:extra" ]; then
+bash $MAIN/extra.md apps:extra; fi
+  if [ "$arg" = "style" ]; then
+proot-distro login debian -- sh -c 'apt-get install --no-install-recommends -y orchis-gtk-theme'; fi # numix-icon-theme-circle fonts-hack
+done
+  elif [ "$ARQUITETURA" = "arm" ] || [ "$ARQUITETURA" = "armhf" ]; then
+  echo "Arquitetura compatível: $ARQUITETURA"
+for arg in "$@"; do
+  if [ "$arg" = "box" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [BOX]'; exit 1; }
+ls $TARGET_DIR_ONE/box86 && echo 'box86 já está instalado.' || sh $MAIN/box_armv7a.md "$@"
+fi
+  if [ "$arg" = "box:local" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [BOX:LOCAL]'; exit 1; }
+ls $TARGET_DIR_ONE/box86 && echo 'box86 já está instalado.' || { sh $MAIN/box_download_local.md "$@" && sh $MAIN/box_armv7a_local.md "$@"; }
+fi
+  if [ "$arg" = "wine" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [WINE]'; exit 1; }
+ls $TARGET_DIR_ONE/wine && echo 'wine já está instalado.' || { sh $MAIN/wine_armv7a.md "$@" && $MAIN/wine_explorer.md; }
+fi
+  if [ "$arg" = "winetricks" ]; then
+[ -z "$TARGET_DIR" ] && { echo 'abortado por erro ao localizar contêiner. [WINETRICKS]'; exit 1; }
+ls $TARGET_DIR_ONE/winetricks && echo 'winetricks já está instalado.' || sh $MAIN/winetricks_armv7a.md "$@"
+fi
+  if [ "$arg" = "apps" ]; then
+bash $MAIN/extra.md apps; fi
+  if [ "$arg" = "apps:extra" ]; then
+bash $MAIN/extra.md apps:extra; fi
+  if [ "$arg" = "style" ]; then
+proot-distro login debian -- sh -c 'apt-get install --no-install-recommends -y orchis-gtk-theme'; fi # numix-icon-theme-circle fonts-hack
+done
+  else echo "Valor: '$ARQUITETURA' como ARQUITETURA foi RECUSADO!"; exit 1
+fi
+
+
+
+
+
+ls $TARGET_DIR && [ ! -z $TARGET_DIR_TESTE ] && cat > $TARGET_DIR_TESTE/exec << 'EOFA'
+#!/bin/bash
+
+MAIN=/data/data/com.termux/files/home/.type_proot_install
+
+case "$DISPLAY" in
+    # Valida o formato correto (ex: :0.0, :1.0)
+    :[0-9]*.[0-9]*)
+        echo "Display válido configurado: $DISPLAY"
+        ;;
+    :[0-9]*)
+        echo "Display X11 detectado: $DISPLAY"
+        ;;
+    # Captura qualquer outro formato ou valor vazio
+    *)
+        echo "Um display deve estar definido primeiro."
+        exit 1
+        ;;
+esac
+
+if [[ "$1" == "reset" ]]; then
+# Pergunta ao utilizador se deseja fazer o reset
+read -p "Escreva RESET para apagar todos os dados dos painéis: " confirm
+
+# Verifica se a resposta foi exatamente "RESET"
+if [[ "$confirm" == "RESET" ]]; then
+    echo "Confirmado! A repor definições de fábrica do painel..."
+    xfconf-query -c xfce4-panel -p / -r -R
+    xfce4-panel --restart
+    [ "$?" = "0" ] && exit 0 || exit 1
+else
+    echo "Operação cancelada."
+    exit 1
+  fi
+fi
+
+tema() {
+echo "
+-------------------
+   APLICAR TEMA 
+-------------------"
+
+# Aplica o Tema GTK (Interior das janelas/Thunar)
+dbus-launch --exit-with-session xfconf-query -c xsettings -p /Net/ThemeName -n -t string -s "Orchis-Dark" && \
+
+# Aplica os Ícones
+# dbus-launch --exit-with-session xfconf-query -c xsettings -p /Net/IconThemeName -n -t string -s "Numix-Circle" && \
+
+# Aplica a Borda da Janela (XFWM4)
+dbus-launch --exit-with-session xfconf-query -c xfwm4 -p /general/theme -n -t string -s "Orchis-Dark" && \
+
+# Aplica a Fonte (Sem o .ttf no nome)
+# dbus-launch --exit-with-session xfconf-query -c xsettings -p /Gtk/FontName -n -t string -s "Hack Bold 10"
+
+# Ativa a sincronização do tema da borda (Xfwm4) com o GTK
+xfconf-query -c xsettings -p /Net/ThemeMatchWm -n -t bool -s true && \
+
+# Atualiza banco de dados do pacote de icones
+# gtk-update-icon-cache
+
+# Força o refresh do gerenciador de janelas
+dbus-launch --exit-with-session xfwm4 --replace &
+}
+
+panel_wallpaper_tema() {
+echo "
+--------------------------------------
+      PANEL E WALLPAPER E TEMA
+--------------------------------------"
+
+# -- Painel
+cd ~ && bash panel_reconstroite_plugins.txt 2
+# importante o argumento 2 para uma função separada no script
+
+# -- Wallpaper -- Vale na próxima sessão
+cp $MAIN/evil_cat.png ~/cat.png && cd ~ && dbus-launch --exit-with-session xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorbuiltin/workspace0/last-image -n -t string -s cat.png
+
+# -- Tema, Icone e Fonte -- Vale na próxima sessão
+cd ~ && tema
+}
+
+# O comando xdpyinfo testa se o display atual responde
+if xdpyinfo >/dev/null 2>&1; then
+    echo "Conexão com o X11 estabelecida com sucesso no display $DISPLAY"
+    panel_wallpaper_tema
+else
+    echo "Erro: Não foi possível conectar ao display $DISPLAY ou ele não existe."
+    exit 1
+fi
+EOFA
+
+ls $TARGET_DIR && [ ! -z $TARGET_DIR_TESTE ] && cat > $TARGET_DIR_TESTE/panel_reconstroite_plugins.txt << 'EOFB'
+#!/bin/bash
+
+echo "
+--------------------------------------
+         PANEL RECONSTROITE
+--------------------------------------"
+
+# --- CONFIGURAÇÃO ---
+PAINEL_ALVO="panel-1"
+LISTA="$HOME/caminhos_p1.txt"
+
+# Variável "Carrinho": Ela vai guardar a sequência de IDs (ex: -t int -s 1 -t int -s 2...)
+LISTA_DE_IDS=""
+
+# 1. LIMPEZA TOTAL
+killall xfce4-panel 2>/dev/null
+xfconf-query -c xfce4-panel -p "/plugins" -r -R 2>/dev/null
+xfconf-query -c xfce4-panel -p "/panels" -r -R 2>/dev/null
+
+# Cria a base do painel (Necessário para o plugin-ids existir)
+xfconf-query -c xfce4-panel -p "/panels" -n -t int -s 1 -a
+
+# --- FUNÇÃO DE VINCULAÇÃO (O Segredo) ---
+# $1 é o número do ID que passamos para a função
+adicionar_ao_painel() {
+    local id_atual=$1
+    # Adicionamos o novo ID ao texto que já existia na variável LISTA_DE_IDS
+    LISTA_DE_IDS="$LISTA_DE_IDS -t int -s $id_atual"
+    
+    # O 'eval' executa o comando montado. Ex: xfconf-query ... -t int -s 1 -t int -s 2 -a
+    # O '-n' garante que a propriedade seja recriada com a lista ATUALIZADA toda vez
+    eval "xfconf-query -c xfce4-panel -p /panels/$PAINEL_ALVO/plugin-ids -n $LISTA_DE_IDS -a"
+}
+
+# --- 1. SEPARADOR INICIAL ---
+xfconf-query -c xfce4-panel -p /plugins/plugin-1 -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p /plugins/plugin-1/style -n -t int -s 0
+adicionar_ao_painel 1
+
+# --- ADICIONAR MENU CORRESPONDENTE ---
+# 1. Verifica se o primeiro argumento ($1) é exatamente "2"
+if [ "$1" == "2" ]; then
+    echo "O argumento é 2. Executando tal coisa..."
+# --- 2. MENU PLUS ---
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2 -n -t string -s "whiskermenu"
+# Logo
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/button-icon -n -t string -s "org.xfce.panel.applicationsmenu"
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/show-button-title -n -t bool -s false
+# Perfil
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/profile-shape -n -t int -s 0
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/position-profile-alternate -n -t bool -s true
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/show-button-title -n -t bool -s false
+adicionar_ao_painel 2
+    echo "Ação realizada."                
+    # ---------------------------
+
+    # 2. Unset/limpar o valor da variável de posição $1
+    # O comando shift remove o primeiro argumento, fazendo $2 virar $1, etc.
+    # Mas como você quer especificamente "dar unset", definimos como nulo:
+    set -- "${@:2}" 
+    echo "Valor de \$1 limpo."
+else
+# --- 2. MENU ---
+xfconf-query -c xfce4-panel -p /plugins/plugin-2 -n -t string -s "applicationsmenu"
+xfconf-query -c xfce4-panel -p /plugins/plugin-2/show-button-title -n -t bool -s false
+adicionar_ao_painel 2
+    echo "Argumento não é 2 (ou não foi fornecido)."
+fi
+
+# --- 3. SEPARADOR (Esquerda) ---
+xfconf-query -c xfce4-panel -p /plugins/plugin-3 -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p /plugins/plugin-3/style -n -t int -s 0
+adicionar_ao_painel 3
+
+# -1
+
+# -1
+
+# --- 4. LOOP DE LANÇADORES ---
+ID_CONTADOR=4
+while IFS= read -r DESKTOP_FILE || [ -n "$DESKTOP_FILE" ]; do
+    [ -z "$DESKTOP_FILE" ] && continue
+    
+    xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "launcher"
+    xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/items" -n -t string -s "$DESKTOP_FILE" -a
+    
+    adicionar_ao_painel $ID_CONTADOR
+    ((ID_CONTADOR++))
+done < "$LISTA"
+
+# --- 5. SEPARADOR EXPANSÍVEL (Direita) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/expand" -n -t bool -s true
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 6. ABAS ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "docklike"
+# xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "tasklist"
+# xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/show-labels" -n -t bool -s false
+# xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/grouping" -n -t bool -s true
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 7. SEPARADOR (Esquerda) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 8. ÁREA DE TRABALHO (Direita) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "pager"
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 9. OCULTAR JANELAS ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "showdesktop"
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 10. CAPTURA DE TELA (PNG) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "screenshooter"
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 11. VOLUME (pulseaudio) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "pulseaudio"
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 12. SEPARADOR (Esquerda) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 13. RELÓGIO ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "clock"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/mode" -n -t int -s 2
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 14. SEPARADOR (Direita) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- CONFIGURAÇÕES VISUAIS (Sempre com -n e -t após o reset) ---
+xfconf-query -c xfce4-panel -p /panels/panel-1/size -n -t int -s 36
+xfconf-query -c xfce4-panel -p /panels/panel-1/length -n -t int -s 98
+xfconf-query -c xfce4-panel -p /panels/panel-1/position -n -t string -s "p=10;x=0;y=0"
+xfconf-query -c xfce4-panel -p /panels/panel-1/position-locked -n -t bool -s true
+xfconf-query -c xfce4-panel -p /panels/panel-1/length-adjust -n -t bool -s false
+xfconf-query -c xfce4-panel -p /panels/panel-1/disable-struts -n -t bool -s true
+xfconf-query -c xfce4-panel -p /panels/panel-1/autohide-behavior -n -t int -s 1
+
+# --- CONFIGURAÇÕES EXTRAS ---
+# 1. Velocidade de ENTRADA (Aparecer) - Ex: 150ms para ser rápido
+xfconf-query -c xfce4-panel -p /panels/panel-1/enter-opacity-duration -n -t int -s 150
+
+# 2. Velocidade de SAÍDA (Esconder) - Ex: 250ms para um sumiço suave
+xfconf-query -c xfce4-panel -p /panels/panel-1/leave-opacity-duration -n -t int -s 250
+
+# 3. Delay para começar a esconder (Tempo que ele espera após você tirar o mouse)
+# Um valor baixo (300ms) torna o painel mais "esperto"
+xfconf-query -c xfce4-panel -p /panels/panel-1/popdown-delay -n -t int -s 300
+
+# 4. Delay para aparecer (Evita que o painel suba se você só encostar sem querer)
+xfconf-query -c xfce4-panel -p /panels/panel-1/popup-delay -n -t int -s 100
+
+# OBRIGATÓRIO COMPOSITOR DE JANELAS (reduz o desempenho)
+# Opacidade quando o mouse NÃO está em cima (0 a 100)
+# xfconf-query -c xfce4-panel -p /panels/panel-1/background-alpha -n -t int -s 80
+# Opacidade quando o mouse ESTÁ em cima (Fica sólido ao interagir)
+# xfconf-query -c xfce4-panel -p /panels/panel-1/enter-opacity -n -t int -s 100
+
+# LANÇAR
+echo "Painel configurado com sucesso!"
+xfce4-panel &
+EOFB
+
+cat > $MAIN/result.md << 'EOFC'
+#!/bin/sh
+
+ATUAL="$PWD"
+ARQUITETURA=$(dpkg --print-architecture)
+TARGET_DIR_ONE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/usr/local/bin | head -1)
+cd $TARGET_DIR_ONE
+argumentos=$(cat ~/.argumentos)
+
+echo '
+_______________________________________
+======================================='
+
+   [ "$ARQUITETURA" = "arm" ] || [ "$ARQUITETURA" = "armhf" ] && echo ' [ Arquitetura nativa: armhf ]'
+   [ "$ARQUITETURA" = "arm64" ] || [ "$ARQUITETURA" = "aarch64" ] && echo ' [ Arquitetura nativa: arm64 ]'
+ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/ > /dev/null 2>&1 && echo ' [ Debian está instalado. ]' || echo ' [ Debian NÃO está instalado. ]'
+ls box86 && echo ' [ Binário [BOX] 32bits OK ]' || echo ' [ Binário [BOX] 32bits NO ]'
+ls wine && echo ' [ Binário [WINE] 32bits OK ]' || echo ' [ Binário [WINE] 32bits NO ]'
+ls box64 && echo ' [ Binário [BOX] 64bits OK ]' || echo ' [ Binário [BOX] 64bits NO ]'
+ls wine64 && echo ' [ Binário [WINE] 64bits OK ]' || echo ' [ Binário [WINE] 64bits NO ]'
+ls winetricks && echo ' [ Binário 32bits do winetricks: OK ]' || echo ' [ Binário 32bits do winetricks: NO ]'
+ls winetricks64 && echo ' [ Binário 64bits do winetricks: OK ]' || echo ' [ Binário 64bits do winetricks: NO ]'
+
+echo '
+_____________________
+[ ARGUMENTOS ATIVOS ]
+^^^^^^^^^^^^^^^^^^^^^
+============================================'
+
+# "Para verificar a existência de uma palavra ou linha exata, pode-se usar o grep e passar o resultado para uma variável. Para garantir que o teste funcione, alguma linha do texto deve conter apenas o valor buscado, sem espaços extras. Originalmente, usa-se o comando head -1 combinado com o grep para capturar apenas a primeira ocorrência. Porém, para simplificar o comando e evitar o uso do head, basta adicionar as flags -xm 1 diretamente no grep padrão do Termux. O -x exige a linha exata e o -m 1 interrompe a busca na primeira linha encontrada. Alternativamente, como o próprio status de saída do grep já responde se o termo foi encontrado, você pode remover a variável e o teste lógico subsequente, economizando alguns ciclos de processamento. Ex: item=$(echo "$argumentos" | grep -xm 1 'local') && [ "$item" = "local" ] && echo "ativo" || echo "inativo""
+
+contador=0
+
+item=$(echo "$argumentos" | grep -xm 1 'box') && [ "$item" = "box" ] && echo ' [ Argumento "box" foi usado? [ YES ]' && contador=$((contador + 1)) || echo ' [ Argumento "box" foi usado? [ NO ]'
+
+item=$(echo "$argumentos" | grep -xm 1 'wine') && [ "$item" = "wine" ] && echo ' [ Argumento "wine" foi usado? [ YES ]' && contador=$((contador + 1)) || echo ' [ Argumento "wine" foi usado? [ NO ]'
+
+item=$(echo "$argumentos" | grep -xm 1 'winetricks') && [ "$item" = "winetricks" ] && echo ' [ Argumento "winetricks" foi usado? [ YES ]' && contador=$((contador + 1)) || echo ' [ Argumento "winetricks" foi usado? [ NO ]'
+
+echo '
+__________
+| EXTRAS |
+^^^^^^^^^^'
+
+item=$(echo "$argumentos" | grep -xm 1 'local') && [ "$item" = "local" ] && echo ' [ Argumento "local" foi usado? [ YES ]' && contador=$((contador + 1)) || echo ' [ Argumento "local" foi usado? [ NO ]'
+
+item=$(echo "$argumentos" | grep -xm 1 'autoconfig') && [ "$item" = "autoconfig" ] && echo ' [ Argumento "autoconfig" foi usado? [ YES ]' && contador=$((contador + 1)) || echo ' [ Argumento "autoconfig" foi usado? [ NO ]'
+
+item=$(echo "$argumentos" | grep -xm 1 'style') && [ "$item" = "style" ] && echo ' [ Argumento "style" foi usado? [ YES ]' && contador=$((contador + 1)) || echo ' [ Argumento "style" foi usado? [ NO ]'
+
+echo '
+============================================
+--------------------------------------------'
+echo "
+_______________________
+  TOTAL: $contador  
+^^^^^^^^^^^^^^^^^^^^^^^
+ "
+cd "$ATUAL"
+EOFC
+
+# -> arg list:
+# | KEYS='sua chave alvo' <- apenas se a chave automática falhar
+# | debian <- instala o contêiner debian
+# | box <- compila e instala o BOX correspondente 
+# | box:local <- instala uma versão de box com o mínimo para funcionar pré-compilada por mim em uma CPU Cortex A53 x8 média 1,9GHz
+# | wine <- baixa e instala o wine correspondente ao seu respectivo diretório na sua home. Use os prefixos wine32 e wine64 para evitar resolver quebras
+# | winetricks <- instala o winetricks com interceptação ao requisito de diretório
+# | apps <- instala algumas dependências, plugins e aplicações básicas
+# | apps:extra <- além de apenas instalar aplicações básicas, também instala o chromium com adição de --no-sandbox e libs para explorer do wine
+# | style <- instala um tema de janelas com bordas arredondadas
+# - 
+
+# KEYS='' debian box:local wine winetricks apps:extra style # box apps
+
+# proot.md box_aarch64.md box_armv7a.md box_download_local.md box_aarch64_local.md box_armv7a_local.md wine_aarch64.md wine_armv7a.md wine_explorer.md winetricks_aarch64.md winetricks_armv7a.md
+
+# -> bloco_free: ( proot.md box_download_local.md wine_explorer.md )
+# -> bloco_aarch64: ( box_aarch64.md box_aarch64_local.md wine_aarch64.md )
+# -> bloco_armv7a: ( box_armv7a.md box_armv7a_local.md wine_armv7a.md )
+# -> depends list:
+# | box_aarch64.md, box_armv7a.md -> proot.md
+# | box_aarch64_local.md, box_armv7a_local.md -> box_download_local.md -> proot.md
+# | wine_aarch64.md, wine_armv7a.md -> BOX -> proot.md
+# | wine_explorer.md -> WINE -> proot.md
+# | winetricks_aarch64.md, winetricks_armv7a.md -> WINE -> proot.md
+# -
+
+} # <- PRINCIPAL # 01
+
+if [ ! -z "$1" ] && [ ! "$1" = "all" ] && [ ! "$1" = "all:local" ] && [ ! "$1" = "log" ]; then
+ script_sh "$@"
+ sh $MAIN/result.md "$@" > ~/result.log && echo "log resumido salvo em $HOME/result.log."
+elif [ ! "$1" = "all:local" ] && [ "$1" = "all" ]; then
+ script_sh KEYS='' debian box wine winetricks apps:extra style
+ sh $MAIN/result.md "$@" > ~/result.log && echo "log resumido salvo em $HOME/result.log."
+elif [ ! "$1" = "all" ] && [ "$1" = "all:local" ]; then
+ script_sh KEYS='' debian box:local wine winetricks apps:extra style
+ sh $MAIN/result.md "$@" > ~/result.log && echo "log resumido salvo em $HOME/result.log."
+elif [ "$1" = "log" ]; then
+ echo "procurando log em ~/result.log.."; ls -f ~/result.log; cat ~/result.log
+ exit 0
+elif [ -z "$1" ]; then
+ echo 'é necessario pelo menos um argumento para continuar.'
+exit 1
+fi
