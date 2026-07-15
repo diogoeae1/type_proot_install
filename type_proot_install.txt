@@ -1333,13 +1333,10 @@ EOFM
 
 
 cat > $MAIN/exec.md << 'EOFN'
+ TARGET_DIR_TESTE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1 2>/dev/null); [ -z "$TARGET_DIR_TESTE" ] && TARGET_DIR_TESTE=$(echo 'none_112233445566778899')
 cat > $TARGET_DIR_TESTE/exec << 'EOFEXEC'
 #!/bin/bash
-
 MAIN=/data/data/com.termux/files/home/.type_proot_install
-  TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/root/ | head -1 2>/dev/null); [ -z "$TARGET_DIR" ] && TARGET_DIR=$(echo 'none_112233445566778899')
- TARGET_DIR_TESTE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1 2>/dev/null); [ -z "$TARGET_DIR_TESTE" ] && TARGET_DIR_TESTE=$(echo 'none_112233445566778899')
-  TARGET_DIR_ONE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/usr/local/bin | head -1 2>/dev/null); [ -z "$TARGET_DIR_ONE" ] && TARGET_DIR_ONE=$(echo 'none_112233445566778899')
 
 case "$DISPLAY" in
     # Valida o formato correto (ex: :0.0, :1.0)
@@ -1431,9 +1428,7 @@ EOFN
 
 cat > $MAIN/reconstrutor.md << 'EOFO'
 MAIN=/data/data/com.termux/files/home/.type_proot_install
-  TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/root/ | head -1 2>/dev/null); [ -z "$TARGET_DIR" ] && TARGET_DIR=$(echo 'none_112233445566778899')
  TARGET_DIR_TESTE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1 2>/dev/null); [ -z "$TARGET_DIR_TESTE" ] && TARGET_DIR_TESTE=$(echo 'none_112233445566778899')
-  TARGET_DIR_ONE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/usr/local/bin | head -1 2>/dev/null); [ -z "$TARGET_DIR_ONE" ] && TARGET_DIR_ONE=$(echo 'none_112233445566778899')
 cat > $TARGET_DIR_TESTE/reconstrutor.txt << 'EOFPANEL'
 #!/bin/bash
 
