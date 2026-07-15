@@ -1333,7 +1333,7 @@ EOFM
 
 
 cat > $MAIN/exec.md << 'EOFN'
-cat > $TARGET_DIR_TESTE/exec << 'EOFEXEC
+cat > $TARGET_DIR_TESTE/exec << 'EOFEXEC'
 #!/bin/bash
 
 MAIN=/data/data/com.termux/files/home/.type_proot_install
