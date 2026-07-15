@@ -1,0 +1,1685 @@
+# ===============
+# proot.md box.md wine.md winetricks.md extra.md -> proot.md box_aarch64.md box_armv7a.md box_download_local.md box_aarch64_local.md box_armv7a_local.md wine_aarch64.md wine_armv7a.md wine_explorer.md winetricks_armv7a.md winetricks_aarch64.md extra.md
+# ===============
+MAIN=./.type_proot_install
+mkdir -p ./.type_proot_install
+
+cat > $MAIN/debian.md << 'EOFA'
+#!/bin/sh
+install_proot() { # <- BLOCO PROOT # 02
+echo "
+--------------------------------------
+         INSTALADOR DEBIAN
+--------------------------------------"
+
+part_one() { # <- BLOCO INTERNO PROOT # 03
+apt-get update && apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+
+pkg install \
+    x11-repo -y || return 1
+
+pkg install -y \
+    termux-x11-nightly \
+    tur-repo \
+    pulseaudio \
+    wget \
+    git \
+    curl \
+    unzip \
+    7zip \
+    tmux \
+    proot-distro && proot-distro install debian || return 1
+  } # <- BLOCO INTERNO PROOT # 03 -> 03
+
+ls -d $PREFIX/var/lib/proot-distro/*/debian/*/root || part_one # <- CHAMADA INTERNA PROOT
+
+TARGET_BIN=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/ 2>/dev/null) && ls -d $TARGET_BIN/*/usr/bin/xfce4-session $TARGET_BIN/*/usr/bin/startxfce4 $TARGET_BIN/*/usr/bin/sudo $TARGET_BIN/*/usr/bin/dbus-launch $TARGET_BIN/*/usr/share/doc/xfce4 >/dev/null 2>&1 || { proot-distro login debian --shared-tmp -- /bin/bash -c "
+PACKAGES=\"nano adduser sudo xfce4-terminal dbus-x11 xfonts-base xfce4-whiskermenu-plugin dex xfce4 librsvg2-common unzip p7zip-full xfce4-screenshooter xfce4-taskmanager xfce4-docklike-plugin x11-utils\"
+apt-get update -y
+apt install -y --no-install-recommends \$PACKAGES
+if ! id \"teste\" >/dev/null 2>&1; then
+    adduser --disabled-password --gecos \"\" teste; passwd --stdin teste <<< \"senha\"; fi
+echo \"teste ALL=(ALL:ALL) ALL\" > /etc/sudoers.d/teste"
+   }
+
+ } # <- BLOCO PROOT # 02 -> 02
+install_proot
+EOFA
+
+cat > $MAIN/box_aarch64.md << 'EOFB'
+#!/bin/sh
+install_aarch_box() {  # <- INSTALAR BOX ARM64 # 01
+   ARQUITETURA=$(dpkg --print-architecture)
+   [ "$ARQUITETURA" = "arm64" ] || [ "$ARQUITETURA" = "aarch64" ] || return 1
+   echo "Arquitetura compatível: $ARQUITETURA"
+
+proot-distro login debian --shared-tmp -- /bin/sh << 'EOF'
+# Aqui você já está dentro do Debian rodando /bin/sh como root
+
+su - teste -s /bin/sh << 'USEREOF'
+#
+NAME=$(whoami) && [ "$NAME" = "teste" ] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; return 1; }
+
+sudo dpkg --add-architecture armhf
+sudo apt-get update
+sudo apt-get install -y git cmake cabextract gcc-arm-linux-gnueabihf libc6-dev-armhf-cross || { echo "Falha ao instalar dependências de compilação"; return 1; }
+sudo apt install -y libc6:armhf || { echo "Falha ao instalar dependências de compilação"; return 1; }
+
+# --- LINK PARA O LINKER ---
+sudo ln -sf /usr/arm-linux-gnueabihf/lib/ /usr/arm-linux-gnueabihf/lib/arm-linux-gnueabihf
+
+# --- COMPILAR BOX86 E INSTALAR ---
+if [ ! -f ~/box86/build/box86 ]; then
+rm -rf box86
+cd ~
+git clone https://github.com/ptitSeb/box86 || echo "Git box86 falhou."
+cd box86 && { rm -rf build && mkdir build && cd build; } || return 1
+git checkout v0.3.8 || { echo "Tag v0.3.8 não encontrada"; return 1; }
+VERSION="gcc-cross"
+
+cmake .. \
+  -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+  -DARM_DYNAREC=ON \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DCMAKE_C_FLAGS="-I/usr/arm-linux-gnueabihf/include" \
+  -DCMAKE_EXE_LINKER_FLAGS="-L/usr/arm-linux-gnueabihf/lib -L/usr/lib/${VERSION}/arm-linux-gnueabihf/14" \
+  -DCMAKE_C_COMPILER_WORKS=1
+
+make -j$(nproc) || return 1
+sudo make install
+# sudo systemctl restart systemd-binfmt (não tem systemd)
+
+elif [ -f ~/box86/build/box86 ]; then
+echo "Compilação de box86 já feita! INSTALANDO.."
+cd ~/box86/build/ && echo "Entrou $PWD"
+make -j$(nproc) || return 1
+sudo make install
+fi
+
+if [ ! -f ~/box64/build/box64 ]; then
+cd ~
+git clone https://github.com/ptitSeb/box64 || echo "Git box64 falhou."
+cd box64 && { rm -rf build && mkdir build && cd build; } || return 1
+cmake .. -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+make -j3 || return 1
+sudo make install
+# sudo systemctl restart systemd-binfmt (não tem systemd)
+
+elif [ -f ~/box64/build/box64 ]; then
+echo "Compilação de box64 já feita! INSTALANDO.."
+cd ~/box64/build/ && echo "Entrou $PWD"
+make -j$(nproc) || return 1
+sudo make install
+fi
+USEREOF
+EOF
+ }  # <- INSTALAR BOX ARM64 # 01 -> 01
+install_aarch_box
+EOFB
+
+cat > $MAIN/box_armv7a.md << 'EOFC'
+#!/bin/sh
+install_armhf_box() { # <- INSTALAR BOX ARM32 # 04
+   ARQUITETURA=$(dpkg --print-architecture)
+   [ "$ARQUITETURA" = "arm" ] || [ "$ARQUITETURA" = "armhf" ] || return 1
+   echo "Arquitetura compatível: $ARQUITETURA"
+
+proot-distro login debian --shared-tmp -- /bin/sh << 'EOF'
+# Aqui você já está dentro do Debian rodando /bin/sh como root
+
+su - teste -s /bin/sh << 'USEREOF'
+#
+NAME=$(whoami) && [ "$NAME" = "teste" ] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; return 1; }
+
+sudo apt-get update
+sudo apt-get install -y git cmake cabextract gcc-arm-linux-gnueabihf libc6-dev-armhf-cross || { echo "Falha ao instalar dependências de compilação"; return 1; }
+
+# --- COMPILAR BOX86 E INSTALAR ---
+if [ ! -f ~/box86/build/box86 ]; then
+rm -rf box86
+cd ~
+git clone https://github.com/ptitSeb/box86 || echo "Git box86 falhou."
+cd box86 && { rm -rf build && mkdir build && cd build; } || return 1
+git checkout v0.3.8 || { echo "Tag v0.3.8 não encontrada"; return 1; }
+VERSION="gcc"
+
+cmake .. \
+  -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+  -DARM_DYNAREC=ON \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DCMAKE_C_FLAGS="-I/usr/arm-linux-gnueabihf/include" \
+  -DCMAKE_EXE_LINKER_FLAGS="-L/usr/arm-linux-gnueabihf/lib -L/usr/lib/${VERSION}/arm-linux-gnueabihf/14" \
+  -DCMAKE_C_COMPILER_WORKS=1
+
+make -j$(nproc) || return 1
+sudo make install
+# sudo systemctl restart systemd-binfmt (não tem systemd)
+
+elif [ -f ~/box86/build/box86 ]; then
+echo "Compilação de box86 já feita! INSTALANDO.."
+cd ~/box86/build/ && echo "Entrou $PWD"
+make -j$(nproc) || return 1
+sudo make install
+fi
+USEREOF
+EOF
+ }  # <- INSTALAR BOX ARM32 # 04 -> 04
+install_armhf_box
+EOFC
+
+cat > $MAIN/box_download_local.md << 'EOFD'
+#!/bin/bash
+
+download_aarch_box_local() {  # <- BAIXAR BOX PRÉ-COMPILADO ARM64 # 02 # BASH
+$PREFIX/bin/bash << 'EOF'
+# Configura o script para fechar imediatamente caso ocorra qualquer erro
+set -e
+
+ARQUITETURA=$(dpkg --print-architecture)
+
+TARGET_DIR_ONE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/usr/local/bin | head -1)
+TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste/ | head -1)
+cd $TARGET_DIR || exit 1
+
+if [[ "$ARQUITETURA" == "arm" || "$ARQUITETURA" == "armhf" ]]; then
+
+ls $TARGET_DIR_ONE/box86 && { echo 'box86 já está instalado, encerrando..'; exit 0; }
+
+FILE_NAME="box_compiled_armhf.tar.gz"
+SHA_NAME="box_compiled_armhf.tar.gz.sha256"
+elif [[ "$ARQUITETURA" == "arm64" || "$ARQUITETURA" == "aarch64" ]]; then
+
+ls $TARGET_DIR_ONE/box86 $TARGET_DIR_ONE/box64 &>/dev/null && { echo 'binários box86 e box64 já foram instalados, encerrando..'; exit 0; }
+
+FILE_NAME="box_compiled.tar.gz"
+SHA_NAME="box_compiled.tar.gz.sha256"
+else echo "não existe um pré-compilado que eu tenha configurado para arquiteturas além de armhf e arm64 que operam em celulares. encerrando modo download.."
+exit 1
+fi
+
+# Configurações de links e arquivos
+REPO_URL="https://github.com/diogoeae1/type_proot_install_files/raw/main"
+
+echo "=== [1/3] Baixando box para a distribuição PRoot e a assinatura SHA256 ==="
+# Baixa o arquivo compacto e sua respectiva chave de verificação
+curl --progress-bar -L --continue-at - --retry 1 --retry-delay 1 -o "$FILE_NAME" "$REPO_URL/$FILE_NAME"
+curl --progress-bar -L --continue-at - --retry 1 --retry-delay 1 -o "$SHA_NAME" "$REPO_URL/$SHA_NAME"
+
+echo "=== [2/3] Verificando a integridade do arquivo ==="
+# Valida se o download bate exatamente com a chave gerada na compilação
+if sha256sum -c "$SHA_NAME"; then
+    echo " Verificação concluída com sucesso!"
+    rm "$SHA_NAME" # Limpa a chave temporária após validação
+else
+    echo " Erro: O arquivo baixado está corrompido ou foi modificado!"
+    exit 1
+fi
+
+echo "=== [3/3] Verifica o arquivo! PRoot ==="
+ls $TARGET_DIR/$FILE_NAME && echo "=== Concluído com sucesso em $TARGET_DIR ===" || echo "Erro ao baixar $FILE_NAME para $TARGET_DIR"
+
+EOF
+} # <- INSTALAR BOX PRÉ-COMPILADO ARM64 # 02 -> 02 # BASH
+download_aarch_box_local
+EOFD
+
+cat > $MAIN/box_aarch64_local.md << 'EOFE'
+install_aarch_box_local() { # <- INSTALAR BOX PRÉ-COMPILADO ARM64 # 03 # BASH
+$PREFIX/bin/bash << 'EOF'
+TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1)
+
+ARQUITETURA=$(dpkg --print-architecture)
+if [[ "$ARQUITETURA" == "arm64" || "$ARQUITETURA" == "aarch64" ]]; then
+FILE="$TARGET_DIR/box_compiled.tar.gz" && echo "$FILE" > boxc_arm64
+    else echo 'invalidado'
+    exit 1
+fi
+
+    ls $FILE && echo "Existe" || { echo "Não existe nenhum arquivo.tar.gz, encerrando.."; exit 1; } && proot-distro login debian --shared-tmp -- /bin/bash <<'LEFT'
+    echo "teste ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/teste || { echo "Falha ao configurar sudo sem senha."; exit 1; }
+    su - teste <<'USEREOF'
+    # tudo aqui dentro será executado como usuário teste
+
+# --- VERIFICAR ALVO ---
+NAME=$(whoami) && [[ "$NAME" == "teste" ]] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; exit 1; }
+ARQUITETURA=$(dpkg --print-architecture)
+
+echo "
+--------------------------------------
+          INSTALADOR BOX
+--------------------------------------"
+
+    if [[ "$ARQUITETURA" == "arm64" || "$ARQUITETURA" == "aarch64" ]]; then
+ls /usr/local/bin/box86 &>/dev/null && { echo 'binário box86 já foi instalado.'; box86=y; }
+ls /usr/local/bin/box64 &>/dev/null && { echo 'binário box64 já foi instalado.'; box64=y; }
+    [[ "$box86" == "y" ]] && [[ "$box64" == "y" ]] && { echo 'binários box86 e box64 já foram instalados, encerrando..'; exit 0; }
+fi
+
+rm -rf box86 box64 BOX &>/dev/null
+echo "Valor: $ARQUITETURA"
+
+if [[ "$ARQUITETURA" == "arm64" || "$ARQUITETURA" == "aarch64" ]]; then
+cd ~ && tar -xvf box_compiled.tar.gz && echo "Extração concluída." || { echo "Extração mal sucedida, encerrando.."; exit 1; }
+cd ~/BOX || { echo "Pasta $HOME/BOX não existe, encerrando.."; exit 1; }; fi
+
+sudo dpkg --add-architecture armhf
+sudo apt-get update
+sudo apt install --no-install-recommends cmake -y
+sudo apt install libc6:armhf -y
+
+apt_compilar() {
+sudo dpkg --add-architecture armhf
+sudo apt-get update
+sudo apt-get install -y git cmake cabextract gcc-arm-linux-gnueabihf libc6-dev-armhf-cross || { echo "Falha ao instalar dependências de compilação"; exit 1; }
+sudo apt install -y libc6:armhf || { echo "Falha ao instalar dependências de compilação"; exit 1; }
+sudo ln -sf /usr/arm-linux-gnueabihf/lib/ /usr/arm-linux-gnueabihf/lib/arm-linux-gnueabihf
+}
+
+if [[ "$ARQUITETURA" == "arm64" || "$ARQUITETURA" == "aarch64" ]]; then
+cd ~ && mv ~/BOX/* ~ && tar -xvf box86_0.3.8.tar.gz && echo "Extração concluída box86." && tar -xvf box64_0.4.3.tar.gz && echo "Extração concluída box64."
+   [ ! -f "$HOME/box86/build/box86" ] && { echo "Binário 32bits não encontrado, encerrando.."; exit 1; }
+echo "Binário 32bits encontrado, prosseguindo para instalação.." && cd ~/box86/build/ && sudo cmake -P cmake_install.cmake || { echo "Instalação 32bits mal sucedida, encerrando..": exit 1; }
+   [ ! -f "$HOME/box64/build/box64" ] && { echo "Binário 64bits não encontrado, encerrando.."; exit 1; }
+echo "Binário 64bits encontrado, prosseguindo para instalação.." && cd ~/box64/build/ && sudo cmake -P cmake_install.cmake || { echo "Instalação 64bits mal sucedida, encerrando..": exit 1; }; fi
+cd ~
+rm -f box_compiled.tar.gz box86_0.3.8.tar.gz box64_0.4.3.tar.gz
+rm -rf BOX box86 box64
+echo 'concluído'
+# --
+USEREOF
+LEFT
+EOF
+} # <- INSTALAR BOX PRÉ-COMPILADO ARM64 # 03 -> 03 # BASH
+install_aarch_box_local
+EOFE
+
+cat > $MAIN/box_armv7a_local.md << 'EOFF'
+#!/bin/bash
+
+install_armv7a_box_local() { # <- INSTALAR BOX PRÉ-COMPILADO ARM64 # 03 # BASH
+$PREFIX/bin/bash << 'EOF'
+TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1)
+
+ARQUITETURA=$(dpkg --print-architecture)
+if [[ "$ARQUITETURA" == "arm" || "$ARQUITETURA" == "armhf" ]]; then
+FILE="$TARGET_DIR/box_compiled_armhf.tar.gz" && $FILE > boxc_armhf
+    else echo 'invalidado'
+    exit 1
+fi
+
+ls $FILE && echo "Existe" || { echo "Não existe nenhum arquivo.tar.gz, encerrando.."; exit 1; } && proot-distro login debian --shared-tmp -- /bin/bash <<'LEFT'
+    echo "teste ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/teste || { echo "Falha ao configurar sudo sem senha."; exit 1; }
+    su - teste <<'USEREOF'
+    # tudo aqui dentro será executado como usuário teste
+
+# --- VERIFICAR ALVO ---
+NAME=$(whoami) && [[ "$NAME" == "teste" ]] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; exit 1; }
+ARQUITETURA=$(dpkg --print-architecture)
+
+echo "
+--------------------------------------
+          INSTALADOR BOX
+--------------------------------------"
+
+if [[ "$ARQUITETURA" == "arm" || "$ARQUITETURA" == "armhf" ]]; then
+ls /usr/local/bin/box86 &>/dev/null && { echo 'binário box86 já foi instalado, encerrando..'; exit 0; }
+fi
+
+rm -rf box86 box64 BOX &>/dev/null
+echo "Valor: $ARQUITETURA"
+
+if [[ "$ARQUITETURA" == "arm" || "$ARQUITETURA" == "armhf" ]]; then
+cd ~ && tar -xvf box_compiled_armhf.tar.gz && echo "Extração concluída." || { echo "Extração mal sucedida, encerrando.."; exit 1; }
+cd ~/box86 || { echo "Pasta $HOME/box86 não existe, encerrando.."; exit 1; }; fi
+
+sudo apt-get update
+sudo apt install --no-install-recommends cmake -y
+sudo apt install libc6 -y
+
+apt_compilar() {
+sudo apt-get update
+sudo apt-get install -y git cmake cabextract gcc-arm-linux-gnueabihf libc6-dev-armhf-cross || { echo "Falha ao instalar dependências de compilação"; exit 1; }
+sudo apt install -y libc6 || { echo "Falha ao instalar dependências de compilação"; exit 1; }
+sudo ln -sf /usr/arm-linux-gnueabihf/lib/ /usr/arm-linux-gnueabihf/lib/arm-linux-gnueabihf
+}
+
+if [[ "$ARQUITETURA" == "arm" || "$ARQUITETURA" == "armhf" ]]; then
+if [ ! -f "$HOME/box86/build/box86" ]; then echo "Binário armhf não encontrado, encerrando.."; exit 1
+else echo "Binário 32bits encontrado, prosseguindo para instalação.."
+cd ~/box86/build/ && sudo cmake -P cmake_install.cmake || { echo "Instalação armhf mal sucedida, encerrando..": exit 1; }; fi; fi
+
+cd ~
+rm -f box_compiled.tar.gz box86_0.3.8.tar.gz box64_0.4.3.tar.gz
+rm -rf BOX box86 box64
+echo 'concluído'
+# --
+USEREOF
+LEFT
+EOF
+} # <- INSTALAR BOX PRÉ-COMPILADO ARM64 # 03 -> 03 # BASH
+install_armv7a_box_local
+EOFF
+
+cat > $MAIN/wine_aarch64.md << 'EOFG'
+#!/bin/sh
+
+install_aarch_wine() { # <- INSTALAR WINE ARM64 # 01
+   ARQUITETURA=$(dpkg --print-architecture)
+   [ "$ARQUITETURA" = "arm64" ] || [ "$ARQUITETURA" = "aarch64" ] || return 1
+   echo "Arquitetura compatível: $ARQUITETURA"
+
+proot-distro login debian --shared-tmp -- /bin/sh << 'EOF'
+# Aqui você já está dentro do Debian rodando /bin/sh como root
+
+su - teste -s /bin/sh << 'USEREOF'
+#
+NAME=$(whoami) && [ "$NAME" = "teste" ] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; return 1; }
+
+{ ls /usr/local/bin/box86 || ls /usr/local/bin/box64; } || { echo 'Arquivo requisitado não encontrado:
+/usr/local/bin/: box86 or box64 required to continue!'; return 1; }
+
+ls /usr/local/bin/wine && { echo 'binário wine86 já foi instalado.'; wine86=y; }
+ls /usr/local/bin/wine64 && { echo 'binário wine64 já foi instalado.'; wine64=y; }
+[ "$wine86" = "y" ] && [ "$wine64" = "y" ] && { echo 'binários wine86 e wine64 já foram instalados, encerrando..'; return 1; }
+
+# --- BAIXAR O WINE86 E INSTALAR ---
+cd ~ && rm -rf wine
+mkdir ~/Downloads
+cd ~/Downloads || return 1
+rm *.deb
+rm -rf wine-installer
+wget -O wine-devel-i386_5.21~buster_i386.deb https://dl.winehq.org/wine-builds/debian/dists/buster/main/binary-i386/wine-devel-i386_5.21~buster_i386.deb || { echo "1-Repositório wineHQ ou conexão de rede falhou"; return 1; }
+wget -O wine-devel_5.21~buster_i386.deb https://dl.winehq.org/wine-builds/debian/dists/buster/main/binary-i386/wine-devel_5.21~buster_i386.deb || { echo "2-Repositório wineHQ ou conexão de rede falhou"; return 1; }
+
+dpkg-deb -xv wine-devel-i386_5.21~buster_i386.deb wine-installer || { echo "1-Falha ao extrair pacote Wine86"; return 1; }
+dpkg-deb -xv wine-devel_5.21~buster_i386.deb wine-installer || { echo "2-Falha ao extrair pacote Wine86"; return 1; }
+
+cat > /usr/local/bin/wine << 'REOF'
+#!/bin/bash
+# Este script deve ser executado pelo sistema, não pelo box86
+/usr/local/bin/box86 /home/teste/wine/bin/wine-preloader /home/teste/wine/bin/wine "$@"
+REOF
+chmod +x /usr/local/bin/wine
+
+# --- BAIXAR O WINE64 E INSTALAR ---
+mkdir ~/Downloads
+cd ~/Downloads || exit 1
+wget -O wine-devel-amd64_5.21~buster_amd64.deb https://dl.winehq.org/wine-builds/debian/dists/buster/main/binary-amd64/wine-devel-amd64_5.21~buster_amd64.deb || { echo "1-Repositório wineHQ 64bits ou conexão de rede falhou"; return 1; }
+wget -O wine-devel_5.21~buster_amd64.deb https://dl.winehq.org/wine-builds/debian/dists/buster/main/binary-amd64/wine-devel_5.21~buster_amd64.deb || { echo "2-Repositório wineHQ 64bits ou conexão de rede falhou"; return 1; }
+
+dpkg-deb -xv wine-devel-amd64_5.21~buster_amd64.deb wine-installer || { echo "1-Falha ao extrair pacote Wine64"; return 1; }
+dpkg-deb -xv wine-devel_5.21~buster_amd64.deb wine-installer || { echo "2-Falha ao extrair pacote Wine64"; return 1; }
+# Crie os "binários" para chamar o Wine e Wine64 diretamente
+
+cat > /usr/local/bin/wine64 << 'LEOF'
+#!/bin/bash
+box64 /home/teste/wine/bin/wine64 "$@"
+LEOF
+chmod +x /usr/local/bin/wine64
+
+# Os scripts devem apontar para seus respectivos binários e pré-loaders
+# Para o wine86 se não houve wine-preloader o wine nunca poderá ser chamado
+
+# --- MOVER O WINE PARA LOCAL ESPERADO ---
+mv ~/Downloads/wine-installer/opt/wine* ~/wine
+rm -rf wine-installer
+rm *.deb
+
+# mostra o erro para o usuário e avisa.
+test -f /home/teste/wine/bin/wine-preloader && echo "wine-preloader encontrado para wine86." || echo "AVISO: wine-preloader NÃO FOI ENCONTRADO! O WINE86 NÃO FUNCIONARÁ."
+
+echo "pausado por 3 segundos.."
+sleep 3
+USEREOF
+EOF
+ } # <- INSTALAR WINE ARM64 # 01 -> 01
+install_aarch_wine
+EOFG
+
+cat > $MAIN/wine_armv7a.md << 'EOFH'
+#!/bin/sh
+
+install_armhf_wine() {  # <- INSTALAR WINE ARM32 # 06
+   ARQUITETURA=$(dpkg --print-architecture)
+   [ "$ARQUITETURA" = "arm" ] || [ "$ARQUITETURA" = "armhf" ] || return 1
+   echo "Arquitetura compatível: $ARQUITETURA"
+
+proot-distro login debian --shared-tmp -- /bin/sh << 'EOF'
+# Aqui você já está dentro do Debian rodando /bin/sh como root
+
+su - teste -s /bin/sh << 'USEREOF'
+#
+NAME=$(whoami) && [ "$NAME" = "teste" ] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; return 1; }
+
+{ ls /usr/local/bin/box86; } || { echo 'Arquivo requisitado não encontrado:
+/usr/local/bin/: box86 required to continue!'; return 1; }
+
+ls /usr/local/bin/wine && { echo 'binário wine86 já foi instalado, encerrando..'; exit 1; }
+
+
+# --- BAIXAR O WINE86 E INSTALAR ---
+cd ~ && rm -rf wine
+mkdir ~/Downloads
+cd ~/Downloads || return 1
+rm *.deb
+rm -rf wine-installer
+wget -O wine-devel-i386_5.21~buster_i386.deb https://dl.winehq.org/wine-builds/debian/dists/buster/main/binary-i386/wine-devel-i386_5.21~buster_i386.deb || { echo "1-Repositório wineHQ ou conexão de rede falhou"; return 1; }
+wget -O wine-devel_5.21~buster_i386.deb https://dl.winehq.org/wine-builds/debian/dists/buster/main/binary-i386/wine-devel_5.21~buster_i386.deb || { echo "2-Repositório wineHQ ou conexão de rede falhou"; return 1; }
+
+dpkg-deb -xv wine-devel-i386_5.21~buster_i386.deb wine-installer || { echo "1-Falha ao extrair pacote Wine86"; return 1; }
+dpkg-deb -xv wine-devel_5.21~buster_i386.deb wine-installer || { echo "2-Falha ao extrair pacote Wine86"; return 1; }
+
+cat > /usr/local/bin/wine << 'REOF'
+#!/bin/bash
+# Este script deve ser executado pelo sistema, não pelo box86
+/usr/local/bin/box86 /home/teste/wine/bin/wine-preloader /home/teste/wine/bin/wine "$@"
+REOF
+chmod +x /usr/local/bin/wine
+
+# Os scripts devem apontar para seus respectivos binários e pré-loaders
+# Para o wine86 se não houve wine-preloader o wine nunca poderá ser chamado
+
+# --- MOVER O WINE PARA LOCAL ESPERADO ---
+mv ~/Downloads/wine-installer/opt/wine* ~/wine
+rm -rf wine-installer
+rm *.deb
+
+# mostra o erro para o usuário e avisa.
+test -f /home/teste/wine/bin/wine-preloader && echo "wine-preloader encontrado para wine86." || echo "AVISO: wine-preloader NÃO FOI ENCONTRADO! O WINE86 NÃO FUNCIONARÁ."
+
+echo "pausado por 3 segundos.."
+sleep 3
+USEREOF
+EOF
+} # <- INSTALAR WINE ARM32 # 06 -> 06
+install_armhf_wine
+EOFH
+
+cat > $MAIN/wine_explorer.md << 'EOFI'
+wine_explorer() { CORREÇÃO WINE EXPLORER ARM64 # 02
+proot-distro login debian --shared-tmp -- /bin/bash <<'LEFT'
+    echo "teste ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/teste || { echo "Falha ao configurar sudo sem senha."; exit 1; }
+    su - teste <<'USEREOF'
+    # tudo aqui dentro será executado como usuário teste
+
+ARQUITETURA=$(dpkg --print-architecture)
+if [ "$ARQUITETURA" = "arm" ] && [ "$ARQUITETURA" = "armhf" ]; then
+sudo dpkg --add-architecture armhf; sudo apt-get update; sudo apt-get install -y libpng16-16t64:armhf libfreetype6:armhf libfontconfig1:armhf libx11-6:armhf libxext6:armhf \
+libpng-dev:armhf libxinerama-dev:armhf libxxf86vm-dev:armhf libxrender-dev:armhf libxcomposite-dev:armhf libxi-dev:armhf libxcursor-dev:armhf libgnutls28-dev:armhf libmpg123-dev:armhf libxrandr-dev:armhf # 70MB
+elif [ "$ARQUITETURA" = "arm64" ] && [ "$ARQUITETURA" = "aarch64" ]; then
+sudo dpkg --add-architecture armhf; sudo apt-get update; sudo apt install -y libpng16-16t64:armhf libfreetype6:armhf libfontconfig1:armhf libx11-6:armhf libxext6:armhf \
+libpng-dev:armhf libxinerama-dev:armhf libxxf86vm-dev:armhf libxrender-dev:armhf libxcomposite-dev:armhf libxi-dev:armhf libxcursor-dev:armhf libgnutls28-dev:armhf libmpg123-dev:armhf libxrandr-dev:armhf \
+libpng16-16 libfreetype6 libfontconfig1 libx11-6 libxext6 \
+libpng-dev libxinerama-dev libxxf86vm-dev libxrender-dev libxcomposite-dev libxi-dev libxcursor-dev libgnutls28-dev \
+libmpg123-dev libxrandr-dev libmpg123-dev # 140MB
+fi
+
+echo "
+--------------------------------------
+ CONFIGURADOR WINE (NO TEST 64BITS)
+--------------------------------------"
+
+ls ~/wine/share/wine/ || { echo "Não existe $HOME/wine/share/wine/."; exit 1; }
+
+ls -d ~/wine/share/wine/mono/5.1.1 ~/wine/share/wine/gecko/2.47.1 && { echo 'Mono e Gecko já foram baixados.'; exit 1; }
+
+# Baixa os tarballs corretos (32-bit x86)
+wget https://dl.winehq.org/wine/wine-mono/5.1.1/wine-mono-5.1.1-x86.tar.xz
+wget https://dl.winehq.org/wine/wine-gecko/2.47.1/wine-gecko-2.47.1-x86.tar.bz2
+
+# Cria a pasta global correspondente dentro do seu Wine
+mkdir -p ~/wine/share/wine/mono/
+mkdir -p ~/wine/share/wine/gecko/
+
+# Extrai o conteúdo diretamente para a pasta share do Wine
+tar -xvf wine-mono-5.1.1-x86.tar.xz -C ~/wine/share/wine/mono/
+tar -xvf wine-gecko-2.47.1-x86.tar.bz2 -C ~/wine/share/wine/gecko/
+
+rm wine-mono-5.1.1-x86.tar.xz wine-gecko-2.47.1-x86.tar.bz2
+
+mv ~/wine/share/wine/mono/wine-mono-5.1.1 ~/wine/share/wine/mono/5.1.1 || exit 1
+mv ~/wine/share/wine/gecko/wine-gecko-2.47.1-x86 ~/wine/share/wine/gecko/2.47.1 || exit 1
+
+USEREOF
+LEFT
+} CORREÇÃO WINE EXPLORER ARM64 # 02 -> 02
+wine_explorer
+EOFI
+
+cat > $MAIN/winetricks_armv7a.md << 'EOFJ'
+#!/bin/bash
+
+# Usamos 'EOF' para escrever o script do Debian de forma limpa
+proot-distro login debian --shared-tmp -- /bin/bash <<'LEFT'
+    echo "teste ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/teste || { echo "Falha ao configurar sudo sem senha."; exit 1; }
+    su - teste <<'USEREOF'
+    # tudo aqui dentro será executado como usuário teste
+
+# --- VERIFICAR ALVO ---
+NAME=$(whoami) && [[ "$NAME" == "teste" ]] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; exit 1; }
+ARQUITETURA=$(dpkg --print-architecture)
+{ ls /usr/local/bin/wine || ls /usr/local/bin/wine64; } || { echo 'Arquivo requisitado não encontrado:
+/usr/local/bin/: wine or wine64 required to continue!'; exit 1; }
+
+echo "
+--------------------------------------
+       INSTALADOR WINETRICKS
+--------------------------------------"
+
+# sudo apt remove winetricks -y && sudo apt autoremove -y
+
+if [[ "$ARQUITETURA" == "arm" || "$ARQUITETURA" == "armhf" ]]; then
+ls /usr/local/bin/winetricks &>/dev/null && { echo 'binário winetricks já foi instalado, encerrando..'; exit 0; }
+fi
+
+# 1. Garante as dependências e o download limpo da versão do GitHub
+prepare_winetricks_bak() {
+    echo "
+--------------------------------------
+ BAIXA E MOVE OS ARQUIVOS DO WINETRICKS
+--------------------------------------"
+    sudo apt-get update && sudo apt-get install cabextract wget -y
+    
+    mkdir -p /tmp/winetricks_download
+    cd /tmp/winetricks_download || exit 1
+    
+    wget https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks
+    
+    chmod +x winetricks
+    sudo mv winetricks /usr/local/bin/winetricks.bak || exit 1
+}
+
+# Executa a função de preparação
+prepare_winetricks_bak
+
+# 2. Injeta o wrapper definitivo de 32 bits (Box86)
+sudo tee /usr/local/bin/winetricks << 'EOF'
+#!/bin/bash
+ATUAL="$PWD"
+
+if ! command -v zenity > /dev/null 2>&1; then 
+    sudo apt update && sudo apt install -y zenity
+fi
+
+export LC_ALL=C
+export LANG=C
+
+mkdir -p /tmp/wine_final
+cd /tmp/wine_final
+
+cat << 'INNER_EOF' > wine
+#!/bin/sh
+if echo "$*" | grep -q "echo '%"; then
+    VAR_NAME=$(echo "$*" | sed "s/.*'%//;s%'.*%%")
+    echo "C:\\users\\teste\\${VAR_NAME}\r"
+    exit 0
+fi
+if echo "$*" | grep -q "cmd.exe /c"; then
+    echo "C:\\windows\\system32\r"
+    exit 0
+fi
+exec /usr/local/bin/wine "$@"
+INNER_EOF
+
+chmod +x wine
+
+export QT_X11_NO_MITSHM=1
+export MITSHM=OFF
+export GSK_RENDERER=cairo
+
+export WINE="/tmp/wine_final/wine"
+export BOX86_NOBANNER=1
+export WINESERVER="$HOME/wine/bin/wineserver"
+export WINEARCH=win32
+export WINEPREFIX="$HOME/.wine32"
+
+bash /usr/local/bin/winetricks.bak "$@"
+
+cd "$ATUAL"
+EOF
+
+sudo chmod +x /usr/local/bin/winetricks
+
+USEREOF
+LEFT
+EOFJ
+
+cat > $MAIN/winetricks_aarch64.md << 'EOFK'
+#!/bin/bash
+
+# Usamos 'EOF' para escrever o script do Debian de forma limpa
+proot-distro login debian --shared-tmp -- /bin/bash <<'LEFT'
+    echo "teste ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/teste || { echo "Falha ao configurar sudo sem senha."; exit 1; }
+    su - teste <<'USEREOF'
+    # tudo aqui dentro será executado como usuário teste
+
+# --- VERIFICAR ALVO ---
+NAME=$(whoami) && [[ "$NAME" == "teste" ]] && echo "USUARIO DETECTADO. PROSSEGUINDO.." || { echo "ALERTA! USUARIO NÃO É TESTE, ENCERRANDO.."; exit 1; }
+ARQUITETURA=$(dpkg --print-architecture)
+{ ls /usr/local/bin/wine || ls /usr/local/bin/wine64; } || { echo 'Arquivo requisitado não encontrado:
+/usr/local/bin/: wine or wine64 required to continue!'; exit 1; }
+
+echo "
+--------------------------------------
+       INSTALADOR WINETRICKS
+--------------------------------------"
+
+# sudo apt remove winetricks -y && sudo apt autoremove -y
+
+if [[ "$ARQUITETURA" == "arm64" || "$ARQUITETURA" == "aarch64" ]]; then
+ls /usr/local/bin/winetricks &>/dev/null && { echo 'binário winetricks já foi instalado.'; winetricks86=y; }
+ls /usr/local/bin/winetricks64 &>/dev/null && { echo 'binário winetricks64 já foi instalado.'; winetricks64=y; }
+[[ "$winetricks86" == "y" ]] && [[ "$winetricks64" == "y" ]] && { echo 'binários winetricks e winetricks64 já foram instalados, encerrando..'; exit 0; }
+fi
+
+# 1. Garante as dependências e o download limpo da versão do GitHub
+prepare_winetricks_bak() {
+    echo "
+--------------------------------------
+ BAIXA E MOVE OS ARQUIVOS DO WINETRICKS
+--------------------------------------"
+    sudo apt-get update && sudo apt-get install cabextract wget -y
+    
+    mkdir -p /tmp/winetricks_download
+    cd /tmp/winetricks_download || exit 1
+    
+    wget https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks
+    
+    chmod +x winetricks
+    sudo mv winetricks /usr/local/bin/winetricks.bak || exit 1
+}
+
+# Executa a função de preparação
+prepare_winetricks_bak
+
+# 2. Injeta o wrapper definitivo de 32 bits (Box86)
+sudo tee /usr/local/bin/winetricks << 'EOF'
+#!/bin/bash
+ATUAL="$PWD"
+
+if ! command -v zenity > /dev/null 2>&1; then 
+    sudo apt update && sudo apt install -y zenity
+fi
+
+export LC_ALL=C
+export LANG=C
+
+mkdir -p /tmp/wine_final
+cd /tmp/wine_final
+
+cat << 'INNER_EOF' > wine
+#!/bin/sh
+if echo "$*" | grep -q "echo '%"; then
+    VAR_NAME=$(echo "$*" | sed "s/.*'%//;s%'.*%%")
+    echo "C:\\users\\teste\\${VAR_NAME}\r"
+    exit 0
+fi
+if echo "$*" | grep -q "cmd.exe /c"; then
+    echo "C:\\windows\\system32\r"
+    exit 0
+fi
+exec /usr/local/bin/wine "$@"
+INNER_EOF
+
+chmod +x wine
+
+export QT_X11_NO_MITSHM=1
+export MITSHM=OFF
+export GSK_RENDERER=cairo
+
+export WINE="/tmp/wine_final/wine"
+export BOX86_NOBANNER=1
+export WINESERVER="$HOME/wine/bin/wineserver"
+export WINEARCH=win32
+export WINEPREFIX="$HOME/.wine32"
+
+bash /usr/local/bin/winetricks.bak "$@"
+
+cd "$ATUAL"
+EOF
+
+sudo chmod +x /usr/local/bin/winetricks
+
+
+# 3. Injeta o wrapper definitivo de 64 bits (Box64) com correção de espelho
+function_arm() {
+sudo tee /usr/local/bin/winetricks64 << 'EOF'
+#!/bin/bash
+ATUAL="$PWD"
+
+if ! command -v zenity > /dev/null 2>&1; then 
+    sudo apt update && sudo apt install -y zenity
+fi
+
+export LC_ALL=C
+export LANG=C
+
+mkdir -p /tmp/wine_final64
+cd /tmp/wine_final64
+
+# Cria o interceptador padrão
+cat << 'INNER_EOF' > wine
+#!/bin/sh
+if echo "$*" | grep -q "echo '%"; then
+    VAR_NAME=$(echo "$*" | sed "s/.*'%//;s%'.*%%")
+    echo "C:\\users\\teste\\${VAR_NAME}\r"
+    exit 0
+fi
+if echo "$*" | grep -q "cmd.exe /c"; then
+    echo "C:\\windows\\system32\r"
+    exit 0
+fi
+exec /usr/local/bin/wine64 "$@"
+INNER_EOF
+
+# GERA O ESPELHO EXIGIDO PELO WINETRICKS EM MODO 64 BITS
+cp wine wine64
+chmod +x wine wine64
+
+export QT_X11_NO_MITSHM=1
+export MITSHM=OFF
+export GSK_RENDERER=cairo
+
+# Adiciona a pasta do interceptador no início do PATH para o Winetricks achar o 'wine64' clonado
+export PATH=/tmp/wine_final64:$PATH
+export WINE="/tmp/wine_final64/wine"
+
+export BOX64_NOBANNER=1
+export WINESERVER="$HOME/wine/bin/wineserver"
+export WINEARCH=win64
+export WINEPREFIX="$HOME/.wine64"
+
+bash /usr/local/bin/winetricks.bak "$@"
+
+cd "$ATUAL"
+EOF
+
+sudo chmod +x /usr/local/bin/winetricks64
+}
+
+# Correção: Chamada explícita da função para criar o arquivo de 64 bits
+if [[ "$ARQUITETURA" == "arm64" || "$ARQUITETURA" == "aarch64" ]]; then
+function_arm
+fi
+
+USEREOF
+LEFT
+EOFK
+
+cat > $MAIN/extra.md << 'EOFL'
+proot-distro login debian --shared-tmp -- /bin/bash <<'LEFT'
+  mkdir -p ~/Desktop
+        su - teste <<'USEREOF'
+  mkdir -p ~/Desktop
+
+echo '
+.................................
+| C O N F I G.  A M B I E N T E |
+`````````````````````````````````
+'
+apps_debian() {
+cd ~
+cat > ~/caminhos_p1.txt << 'CEOF'
+/usr/share/applications/thunar.desktop
+/usr/share/applications/chromium.desktop
+/usr/share/applications/xfce4-taskmanager.desktop
+/usr/share/applications/xfce4-terminal-emulator.desktop
+CEOF
+
+echo '
+.............................
+|  A P P L I C A T I O N S  |
+`````````````````````````````
+'
+sudo apt-get install -y --no-install-recommends thunar mousepad xdg-utils file htop mpv imagemagick zathura strawberry xournalpp \
+xfce4-cpufreq-plugin xfce4-screenshooter xfce4-taskmanager xfce4-docklike-plugin
+ # chromium krita kdenlive inkscape ardour subtitlecomposer blender obs-studio 
+# xfce4-timer-plugin  xfce4-weather-plugin xfce4-mailwatch-plugin xfce4-battery-plugin xfce4-clipman xfce4-cpugraph-plugin xfce4-diskperf-plugin xfce4-fsguard-plugin xfce4-indicator-plugin xfce4-mpc-plugin xfce4-netload-plugin xfce4-places-plugin xfce4-sensors-plugin xfce4-verve-plugin xfce4-xkb-plugin xfce4-datetime-plugin xfce4-windowck-plugin # xfce4-genmon-plugin <- não sei usar. # xfce4-todo-plugin xfce4-calculator-plugin xfce4-stopwatch-plugin xfce4-embed-plugin <- não está disponível.
+
+echo '
+.............................
+|  D E P E N D E N C I A S  |
+`````````````````````````````
+'
+sudo apt update && sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gobject-introspection libgtk-3-dev
+}
+
+mime_padrao() {
+echo '
+..............................
+|  Config. M i m e  A p p s  |
+``````````````````````````````
+'
+mkdir -p ~/.config &>/dev/null
+rm ~/.config/mimeapps.list &>/dev/null && echo "Apagado mimeapps.list" || echo "$HOME/.config/mimeapps.list já não existia."
+mkdir -p ~/.config && cat > ~/.config/mimeapps.list << 'EOF'
+[Default Applications]
+# Documentos de Texto (Mousepad)
+text/plain=org.xfce.mousepad.desktop
+
+# Documentos PDF (Zathura)
+application/pdf=org.pwmt.zathura-pdf-poppler.desktop
+
+# Navegação Web e Páginas (Chromium)
+text/html=chromium.desktop
+text/xml=chromium.desktop
+x-scheme-handler/http=chromium.desktop
+x-scheme-handler/https=chromium.desktop
+
+# Imagens e Fotos (ImageMagick / Display)
+image/jpeg=display-im7.q16.desktop
+image/png=display-im7.q16.desktop
+image/gif=display-im7.q16.desktop
+
+# Áudio e Vídeo (MPV)
+video/mp4=mpv.desktop
+video/x-matroska=mpv.desktop
+audio/mpeg=mpv.desktop
+EOF
+ls ~/.config/mimeapps.list >/dev/null && echo "Foi criado $HOME/.config/mimeapps.list"
+}
+
+chromium() {
+echo '
+..............................
+|  C h r o m i u m  A.P.T.   |
+``````````````````````````````
+'
+mkdir -p ~/Desktop
+sudo apt-get install chromium -y # 430MB
+cd /usr/share/applications/ && echo "Entrou: $PWD" && ls chromium.desktop.bak &>/dev/null || cp /usr/share/applications/chromium.desktop /usr/share/applications/chromium.desktop.bak
+grep -q "\-\-no-sandbox" chromium.desktop || sed -i '/Exec/s/$/ --no-sandbox/' chromium.desktop
+
+ln -sf /usr/share/applications/chromium.desktop ~/Desktop/chromium.desktop
+# cat /usr/share/applications/chromium.desktop | grep Exec
+}
+
+if [ "$1" = "apps" ]; then apps_debian; mime_padrao; fi # <- CHAMADA
+if [ "$1" = "apps:extra" ]; then apps_debian; mime_padrao; chromium; fi # <- CHAMADA
+
+sudo dpkg --configure -a
+apt-get update
+
+echo '
+.................................
+|      C O N C L U Í D O !!     |
+`````````````````````````````````
+'
+USEREOF
+LEFT
+EOFL
+
+cat > $MAIN/touch.md << 'EOFM'
+#!/bin/bash
+
+# Usamos 'EOF' com aspas para o bash não tentar processar nada agora
+cat > ~/script_xfce4s << 'TEOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+# --- VERIFICAÇÃO DE DEPENDÊNCIAS ---
+for pkg in proot-distro termux-x11; do
+    if ! command -v $pkg > /dev/null 2>&1; then
+        echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install $pkg"
+        exit 1
+    fi
+done
+
+# 1. Limpeza e Preparação (Termux)
+pkill -9 -f "termux.x11" 2>/dev/null
+pulseaudio --start --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1" --exit-idle-time=-1
+
+export XDG_RUNTIME_DIR=${TMPDIR}
+termux-x11 :0 >/dev/null 2>&1 &
+sleep 2
+
+if [ ! "$1" == "not" ]; then
+am start --user 0 -n com.termux.x11/com.termux.x11.MainActivity > /dev/null 2>&1
+sleep 1
+fi
+
+# 2. Configurações de Performance (Variáveis que passaremos para o Debian)
+ENV_VARS="
+export DISPLAY=:0
+export PULSE_SERVER=127.0.0.1
+export XDG_RUNTIME_DIR=$TMPDIR
+export GALLIUM_DRIVER=llvmpipe
+export LP_NUM_THREADS=8
+export MESA_EXTENSION_MAX_YEAR=2003
+export LIBGL_ALWAYS_SOFTWARE=1
+"
+
+# 3. O "Cérebro" do Script - Execução dentro do Debian
+# Usamos 'EOF' para escrever o script do Debian de forma limpa
+proot-distro login debian --shared-tmp -- /bin/bash <<EOF
+    $ENV_VARS
+    
+    su - teste <<USEREOF
+        $ENV_VARS
+        
+        # Iniciar serviços essenciais
+        xfconf-query -c xfwm4 -p /general/use_compositing -s false
+        (xfwm4 --replace --compositor=off &)
+        
+        # Iniciar componentes da interface
+        dbus-launch --exit-with-session startxfce4 &
+        
+        # Autostart
+        dex -a -s ~/.config/autostart/ &
+        
+        echo "Interface carregada com sucesso!"
+        wait
+USEREOF
+EOF
+killall virgl_test_server_android 2>/dev/null
+pkill -9 -f "termux.x11" 2>/dev/null
+echo "Sessão encerrada."
+
+exit 0
+TEOF
+
+
+# Usamos 'EOF' com aspas para o bash não tentar processar nada agora
+cat > ~/script-vncs << 'VNCEOF'
+#!/bin/bash
+
+# --- VERIFICAÇÃO DE DEPENDÊNCIAS ---
+for pkg in proot-distro tmux; do
+    if ! command -v $pkg > /dev/null 2>&1; then
+        echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install $pkg"
+        exit 1
+    fi
+done
+
+# --- O BLOCO MESTRE (Contém todas as camadas) ---
+executar_vnc() {
+    # Camada 1: Proot (Debian)
+    proot-distro login debian --shared-tmp -- /bin/bash <<'VEFT'
+        # Camada 2: Usuário Teste
+        su - teste <<'USEREOF'
+
+for pkg in tightvncserver; do
+    if ! command -v $pkg > /dev/null 2>&1; then
+        echo "Erro: O pacote '$pkg' não está instalado. Instale com: apt install $pkg"
+        exit 1
+    fi
+done
+
+# 2. Permite todos a usar o DISPLAY
+ARQUIVO="/etc/tightvncserver.conf"
+LINHA_CORRETA='$authType = "-rfbauth $vncUserDir/passwd -ac";'
+
+# Verifica se o trecho "passwd -ac" existe em uma linha que NÃO esteja comentada
+if ! grep -v '^#' "$ARQUIVO" | grep -q "passwd -ac"; then
+   cp "$ARQUIVO" "/etc/tightvncserver.conf.bak"
+   echo "$LINHA_CORRETA" >> "$ARQUIVO"
+   echo "Configuração adicionada com sucesso."
+else
+   echo "A configuração já está ativa. Tudo ok!"
+fi
+
+        # 1. Limpeza Intencional
+        vncserver -kill :1 > /dev/null 2>&1
+        rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1 ~/.vnc/*.pid ~/.vnc/*.log
+
+        # 2. Configuração do xstartup (Seu compositor específico)
+        mkdir -p ~/.vnc
+        cat > ~/.vnc/xstartup <<'RIGHT'
+#!/bin/sh
+export DISPLAY=:1
+export XDG_RUNTIME_DIR=/tmp
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+xfconf-query -c xfwm4 -p /general/use_compositing -s false
+(xfwm4 --replace --compositor=off &)
+dbus-launch --exit-with-session startxfce4 &
+RIGHT
+        chmod +x ~/.vnc/xstartup
+
+        # 3. Inicialização
+        echo "123456" | vncpasswd -f > ~/.vnc/passwd && chmod 600 ~/.vnc/passwd
+        vncserver :1 -geometry 1080x720
+
+        # 4. Monitoramento e Trap (Trava o terminal aqui)
+        LOG_FILE=$(ls ~/.vnc/*.log 2>/dev/null | head -n 1)
+        trap "vncserver -kill :1; exit" INT TERM
+        echo "Monitorando log: $LOG_FILE"
+        [ -f "$LOG_FILE" ] && tail -f "$LOG_FILE"
+
+USEREOF
+VEFT
+
+    # Pós-execução (Roda no Termux após sair do Debian)
+    killall virgl_test_server_android 2>/dev/null
+    tmux kill-session -t vnc_server 2>/dev/null
+    echo "Sessão encerrada."
+}
+
+# --- LÓGICA DE CHAMADA ---
+
+if [ "$1" == "start" ]; then
+    # Execução Direta (Primeira opção: Frente de tela)
+    executar_vnc
+else
+    # Execução via Tmux (Segunda opção: Segundo plano)
+    if tmux has-session -t vnc_server 2>/dev/null; then
+        echo "VNC já está em execução no Tmux. Use: tmux attach -t vnc_server"
+    else
+        echo "Iniciando VNC no fundo (Tmux)..."
+        # O comando abaixo faz o script chamar a si mesmo com o argumento 'start'
+        # dentro de uma sessão isolada do Tmux.
+        tmux new-session -d -s vnc_server "bash $0 start"
+        echo "Sucesso. Para ver o log, digite: tmux attach -t vnc_server"
+    fi
+fi
+echo "-------------------------
+Abra um cliente vnc e use essas credenciais abaixo:
+Tightvnc (vnc server)
+127.0.0.1 (localhost)
+24-bit color (4 bpp)
+ip: 127.0.0.1
+port: 5901
+passwd: 123456
+-------------------------" # 25 - 25
+VNCEOF
+
+
+# Usamos 'EOF' com aspas para o bash não tentar processar nada agora
+cat > ~/script_xfce4sgl << 'GLEOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+# --- VERIFICAÇÃO DE DEPENDÊNCIAS ---
+for pkg in proot-distro termux-x11 virgl_test_server_android virgl_test_server; do
+    if ! command -v $pkg > /dev/null 2>&1; then
+        [[ "$pkg" == "virgl_test_server_android" ]] && echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install virglrenderer-android" && exit 1
+        [[ "$pkg" == "virgl_test_server" ]] && echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install virglrenderer" && exit 1
+        echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install $pkg"
+        exit 1
+    fi
+done
+
+# Instala o utilitário correto para Android
+# pkg install -y termux-x11 virglrenderer-android
+
+# 1. Limpeza e Preparação (Termux)
+killall -9 termux-x11 Xwayland virgl_test_server_android 2>/dev/null
+pulseaudio --start --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1" --exit-idle-time=-1
+
+export XDG_RUNTIME_DIR=${TMPDIR}
+termux-x11 :0 -ac >/dev/null 2>&1 &
+sleep 2
+# Inicia o servidor VirGL específico do Android (ele buscará o OpenGL ES físico)
+virgl_test_server_android &
+
+if [ ! "$1" == "not" ]; then
+am start --user 0 -n com.termux.x11/com.termux.x11.MainActivity > /dev/null 2>&1
+sleep 1
+fi
+
+# 2. Configurações de Performance (Variáveis que passaremos para o Debian)
+ENV_VARS="
+# 1. DIRECIONAMENTO GRÁFICO PARA A GPU FÍSICA (A ponte do seu teste de sucesso)
+export DISPLAY=:0
+export GALLIUM_DRIVER=virpipe
+export PULSE_SERVER=127.0.0.1
+export XDG_RUNTIME_DIR=$TMPDIR
+# export GALLIUM_DRIVER=llvmpipe
+export LP_NUM_THREADS=8
+export MESA_EXTENSION_MAX_YEAR=2003
+export LIBGL_ALWAYS_SOFTWARE=1
+"
+
+# 3. O "Cérebro" do Script - Execução dentro do Debian
+# Usamos 'EOF' para escrever o script do Debian de forma limpa
+proot-distro login debian --shared-tmp -- /bin/bash <<EOF
+    $ENV_VARS
+    
+    su - teste <<USEREOF
+        $ENV_VARS
+        
+        # Iniciar serviços essenciais
+        xfconf-query -c xfwm4 -p /general/use_compositing -s false
+        (xfwm4 --replace --compositor=off &)
+        
+        # Iniciar componentes da interface
+        dbus-launch --exit-with-session startxfce4 &
+        
+        # Autostart
+        dex -a -s ~/.config/autostart/ &
+        
+        echo "Interface carregada com sucesso!"
+        wait
+USEREOF
+EOF
+killall virgl_test_server_android 2>/dev/null
+pkill -9 -f "termux.x11" 2>/dev/null
+echo "Sessão encerrada."
+
+exit 0
+GLEOF
+
+
+# Usamos 'EOF' com aspas para o bash não tentar processar nada agora
+cat > ~/script_xfce4sgl_virtual << 'PLEOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+# --- VERIFICAÇÃO DE DEPENDÊNCIAS ---
+for pkg in proot-distro termux-x11 virgl_test_server_android virgl_test_server; do
+    if ! command -v $pkg > /dev/null 2>&1; then
+        [[ "$pkg" == "virgl_test_server_android" ]] && echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install virglrenderer-android" && exit 1
+        [[ "$pkg" == "virgl_test_server" ]] && echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install virglrenderer" && exit 1
+        echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install $pkg"
+        exit 1
+    fi
+done
+
+# Instala o utilitário correto para Android
+# pkg install -y termux-x11 virglrenderer-android
+
+pulse() {
+# 1. Limpeza e Preparação (Termux)
+killall -9 termux-x11 Xwayland virgl_test_server_android 2>/dev/null
+pulseaudio --start --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1" --exit-idle-time=-1
+}
+
+# Uma tentativa que cria e inicia um dispositivo de som virtual no pulseaudio para contornar limitação de captura de áudio do Android, que pode ou não estar presente
+pulse_virtual() {
+rm -rf ~/.config/pulse ~/.pulse /tmp/pulse-*
+killall -9 pulseaudio 2>/dev/null
+pulseaudio --start --exit-idle-time=-1
+
+# Carregar módulos essenciais
+# pactl load-module module-suspend-on-idle
+# pactl unload-module module-suspend-on-idle
+pactl load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1
+pactl load-module module-null-sink sink_name=Virtual_Sink sink_properties=device.description=Virtual_Sink
+pactl load-module module-loopback source=Virtual_Sink.monitor sink=OpenSL_ES_sink
+# pactl suspend-sink 2 0
+pactl set-default-sink Virtual_Sink
+pactl list sinks short | grep Virtual_Sink
+}
+pulse_virtual
+
+export XDG_RUNTIME_DIR=${TMPDIR}
+termux-x11 :0 -ac >/dev/null 2>&1 &
+sleep 2
+# Inicia o servidor VirGL específico do Android (ele buscará o OpenGL ES físico)
+virgl_test_server_android &
+
+if [ ! "$1" == "not" ]; then
+am start --user 0 -n com.termux.x11/com.termux.x11.MainActivity > /dev/null 2>&1
+sleep 1
+fi
+
+# 2. Configurações de Performance (Variáveis que passaremos para o Debian)
+ENV_VARS="
+# 1. DIRECIONAMENTO GRÁFICO PARA A GPU FÍSICA (A ponte do seu teste de sucesso)
+export DISPLAY=:0
+export GALLIUM_DRIVER=virpipe
+export PULSE_SERVER=127.0.0.1
+export XDG_RUNTIME_DIR=$TMPDIR
+# export GALLIUM_DRIVER=llvmpipe
+export LP_NUM_THREADS=8
+export MESA_EXTENSION_MAX_YEAR=2003
+export LIBGL_ALWAYS_SOFTWARE=1
+"
+
+# 3. O "Cérebro" do Script - Execução dentro do Debian
+# Usamos 'EOF' para escrever o script do Debian de forma limpa
+proot-distro login debian --shared-tmp -- /bin/bash <<EOF
+    $ENV_VARS
+    
+    su - teste <<USEREOF
+        $ENV_VARS
+        
+        # Iniciar serviços essenciais
+        xfconf-query -c xfwm4 -p /general/use_compositing -s false
+        (xfwm4 --replace --compositor=off &)
+        
+        # Iniciar componentes da interface
+        dbus-launch --exit-with-session startxfce4 &
+        
+        # Autostart
+        dex -a -s ~/.config/autostart/ &
+        
+        echo "Interface carregada com sucesso!"
+        wait
+USEREOF
+EOF
+killall virgl_test_server_android 2>/dev/null
+pkill -9 -f "termux.x11" 2>/dev/null
+killall -9 pulseaudio 2>/dev/null
+echo "Sessão encerrada."
+
+exit 0
+PLEOF
+
+# Usamos 'EOF' com aspas para o bash não tentar processar nada agora
+cat > ~/virglvk << 'GLVKEOF'
+#!/data/data/com.termux/files/usr/bin/bash
+
+# --- VERIFICAÇÃO DE DEPENDÊNCIAS ---
+for pkg in proot-distro termux-x11 virgl_test_server_android virgl_test_server; do
+    if ! command -v $pkg > /dev/null 2>&1; then
+        [[ "$pkg" == "virgl_test_server_android" ]] && echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install virglrenderer-android" && exit 1
+        [[ "$pkg" == "virgl_test_server" ]] && echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install virglrenderer" && exit 1
+        echo "Erro: O pacote '$pkg' não está instalado. Instale com: pkg install $pkg"
+        exit 1
+    fi
+done
+
+# Instala o utilitário correto para Android
+# pkg install -y termux-x11 virglrenderer-android
+
+# 1. Limpeza e Preparação (Termux)
+killall -9 termux-x11 Xwayland virgl_test_server_android 2>/dev/null
+pulseaudio --start --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1" --exit-idle-time=-1
+
+export XDG_RUNTIME_DIR=${TMPDIR}
+termux-x11 :0 -ac >/dev/null 2>&1 &
+sleep 2
+# Inicia o servidor VirGL específico do Android (ele buscará o OpenGL ES físico)
+env MESA_GL_VERSION_OVERRIDE=3.0 MESA_GLES_VERSION_OVERRIDE=3.0 /data/data/com.termux/files/usr/bin/virgl_test_server_android --angle-vulkan &
+
+if [ ! "$1" == "not" ]; then
+am start --user 0 -n com.termux.x11/com.termux.x11.MainActivity > /dev/null 2>&1
+sleep 1
+fi
+
+# 2. Configurações de Performance (Variáveis que passaremos para o Debian)
+ENV_VARS="
+# 1. DIRECIONAMENTO GRÁFICO PARA A GPU FÍSICA (A ponte do seu teste de sucesso)
+export DISPLAY=:0
+export GALLIUM_DRIVER=virpipe
+export LIBGL_ALWAYS_SOFTWARE=1
+export PULSE_SERVER=127.0.0.1
+export XDG_RUNTIME_DIR=/tmp
+export LP_NUM_THREADS=8
+export V_REND_VGLES=30
+export MESA_GL_VERSION_OVERRIDE=3.3
+export MESA_GLSL_VERSION_OVERRIDE=330
+# export MESA_EXTENSION_MAX_YEAR=2003
+"
+
+# 3. O "Cérebro" do Script - Execução dentro do Debian
+# Usamos 'EOF' para escrever o script do Debian de forma limpa
+proot-distro login debian --shared-tmp -- /bin/bash <<EOF
+    $ENV_VARS
+    
+    su - teste <<USEREOF
+        $ENV_VARS
+        
+        # Iniciar serviços essenciais
+        xfconf-query -c xfwm4 -p /general/use_compositing -s false
+       # (xfwm4 --replace --compositor=off &)
+        
+        # Iniciar componentes da interface
+        dbus-launch --exit-with-session startxfce4 &
+        
+        # Autostart
+       # dex -a -s ~/.config/autostart/ &
+        
+        echo "Interface carregada com sucesso!"
+        wait
+USEREOF
+EOF
+killall virgl_test_server_android 2>/dev/null
+pkill -9 -f "termux.x11" 2>/dev/null
+echo "Sessão encerrada."
+
+exit 0
+GLVKEOF
+EOFM
+
+
+cat > $MAIN/exec.md << 'EOFN'
+cat > $TARGET_DIR_TESTE/exec << 'EOFEXEC
+#!/bin/bash
+
+MAIN=/data/data/com.termux/files/home/.type_proot_install
+  TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/root/ | head -1 2>/dev/null); [ -z "$TARGET_DIR" ] && TARGET_DIR=$(echo 'none_112233445566778899')
+ TARGET_DIR_TESTE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1 2>/dev/null); [ -z "$TARGET_DIR_TESTE" ] && TARGET_DIR_TESTE=$(echo 'none_112233445566778899')
+  TARGET_DIR_ONE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/usr/local/bin | head -1 2>/dev/null); [ -z "$TARGET_DIR_ONE" ] && TARGET_DIR_ONE=$(echo 'none_112233445566778899')
+
+case "$DISPLAY" in
+    # Valida o formato correto (ex: :0.0, :1.0)
+    :[0-9]*.[0-9]*)
+        echo "Display válido configurado: $DISPLAY"
+        ;;
+    :[0-9]*)
+        echo "Display X11 detectado: $DISPLAY"
+        ;;
+    # Captura qualquer outro formato ou valor vazio
+    *)
+        echo "Um display deve estar definido primeiro."
+        exit 1
+        ;;
+esac
+
+if [[ "$1" == "reset" ]]; then
+# Pergunta ao utilizador se deseja fazer o reset
+read -p "Escreva RESET para apagar todos os dados dos painéis: " confirm
+
+# Verifica se a resposta foi exatamente "RESET"
+if [[ "$confirm" == "RESET" ]]; then
+    echo "Confirmado! A repor definições de fábrica do painel..."
+    xfconf-query -c xfce4-panel -p / -r -R
+    xfce4-panel --restart
+    [ "$?" = "0" ] && exit 0 || exit 1
+else
+    echo "Operação cancelada."
+    exit 1
+  fi
+fi
+
+tema() {
+echo "
+-------------------
+   APLICAR TEMA 
+-------------------"
+
+# Aplica o Tema GTK (Interior das janelas/Thunar)
+dbus-launch --exit-with-session xfconf-query -c xsettings -p /Net/ThemeName -n -t string -s "Orchis-Dark" && \
+
+# Aplica os Ícones
+# dbus-launch --exit-with-session xfconf-query -c xsettings -p /Net/IconThemeName -n -t string -s "Numix-Circle" && \
+
+# Aplica a Borda da Janela (XFWM4)
+dbus-launch --exit-with-session xfconf-query -c xfwm4 -p /general/theme -n -t string -s "Orchis-Dark" && \
+
+# Aplica a Fonte (Sem o .ttf no nome)
+# dbus-launch --exit-with-session xfconf-query -c xsettings -p /Gtk/FontName -n -t string -s "Hack Bold 10"
+
+# Ativa a sincronização do tema da borda (Xfwm4) com o GTK
+xfconf-query -c xsettings -p /Net/ThemeMatchWm -n -t bool -s true && \
+
+# Atualiza banco de dados do pacote de icones
+# gtk-update-icon-cache
+
+# Força o refresh do gerenciador de janelas
+dbus-launch --exit-with-session xfwm4 --replace &
+}
+
+panel_wallpaper_tema() {
+echo "
+--------------------------------------
+      PANEL E WALLPAPER E TEMA
+--------------------------------------"
+
+# -- Painel
+cd ~ && bash reconstrutor.txt 2
+# importante o argumento 2 para uma função separada no script
+
+# -- Wallpaper -- Vale na próxima sessão
+cp $MAIN/evil_cat.png ~/cat.png && cd ~ && dbus-launch --exit-with-session xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorbuiltin/workspace0/last-image -n -t string -s cat.png
+
+# -- Tema, Icone e Fonte -- Vale na próxima sessão
+cd ~ && tema
+}
+
+# O comando xdpyinfo testa se o display atual responde
+if xdpyinfo >/dev/null 2>&1; then
+    echo "Conexão com o X11 estabelecida com sucesso no display $DISPLAY"
+    panel_wallpaper_tema
+else
+    echo "Erro: Não foi possível conectar ao display $DISPLAY ou ele não existe."
+    exit 1
+fi
+EOFEXEC
+EOFN
+
+
+cat > $MAIN/reconstrutor.md << 'EOFO'
+MAIN=/data/data/com.termux/files/home/.type_proot_install
+  TARGET_DIR=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/root/ | head -1 2>/dev/null); [ -z "$TARGET_DIR" ] && TARGET_DIR=$(echo 'none_112233445566778899')
+ TARGET_DIR_TESTE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/home/teste | head -1 2>/dev/null); [ -z "$TARGET_DIR_TESTE" ] && TARGET_DIR_TESTE=$(echo 'none_112233445566778899')
+  TARGET_DIR_ONE=$(ls -d $PREFIX/var/lib/proot-distro/*/debian/*/usr/local/bin | head -1 2>/dev/null); [ -z "$TARGET_DIR_ONE" ] && TARGET_DIR_ONE=$(echo 'none_112233445566778899')
+cat > $TARGET_DIR_TESTE/reconstrutor.txt << 'EOFPANEL'
+#!/bin/bash
+
+
+echo "
+--------------------------------------
+       RECONTRUTOR PAINEL 1
+--------------------------------------"
+
+# --- CONFIGURACAO PANEL 1 ---
+PAINEL_ALVO="panel-1" # <- O ALVO
+LISTA="$HOME/caminhos_p1.txt" # <- LISTA DE .DESKTOP
+
+# Variável "Carrinho": Ela vai guardar a sequencia de IDs (ex: -t int -s 1 -t int -s 2...)
+LISTA_DE_IDS="" # <- GUARDA DO ZERO CADA ID EM UMA LISTA
+
+# 1. LIMPEZA TOTAL
+killall xfce4-panel 2>/dev/null # <- MATA O PROCESSO PARA EVITAR TRAVA-LO
+xfconf-query -c xfce4-panel -p "/plugins" -r -R 2>/dev/null # <- APAGA DADOS DE PLUGINS
+xfconf-query -c xfce4-panel -p "/panels" -r -R 2>/dev/null # <- APAGA A ESTRUTURA
+
+# Cria a base para os dois painéis existirem simultaneamente (Necessário para o plugin-ids existir)
+xfconf-query -c xfce4-panel -p "/panels" -n -t int -s 1 -t int -s 2 -a # <- CRIA A ESTRUTURA DO ZERO
+
+# --- FUNÇÃO DE VINCULAÇÃO (O Segredo) ---
+# $1 é o número do ID que passamos para a funcao
+adicionar_ao_painel() { # <- CRIA UM GRUPO
+    local id_atual=$1 # <- CRIA UMA VARIAVEL ESTRITA A ESSE GRUPO
+    # Adicionamos o novo ID ao texto que já existia na variável LISTA_DE_IDS
+    LISTA_DE_IDS="$LISTA_DE_IDS -t int -s $id_atual" # <- JUNTA O VALOR DE ID ANTIGO COM O NOVO NA MESMA VARIAVEL
+    
+    # O 'eval' executa o comando montado. Ex: xfconf-query ... -t int -s 1 -t int -s 2 -a
+    # O '-n' garante que a propriedade seja recriada com a lista ATUALIZADA toda vez
+    eval "xfconf-query -c xfce4-panel -p /panels/$PAINEL_ALVO/plugin-ids -n $LISTA_DE_IDS -a" # <- CRIA A ESTRUTURA DOS PLUGINS E OS APLICA AO MESMO TEMPO
+echo "$ID_CONTADOR" > ~/carrinho_panel.txt # <- SALVA O ID ATUAL EM UM ARQUIVO
+echo "$ID_CONTADOR"
+} # <- FECHA O GRUPO
+
+# --- ADICIONAR MENU CORRESPONDENTE ---
+# 1. Verifica se o primeiro argumento ($1) é exatamente "2"
+if [ "$1" == "2" ]; then
+    echo "O argumento é 2. Executando tal coisa..."
+# --- 2. MENU PLUS ---
+# - CRIA O PLUGIN
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2 -n -t string -s "whiskermenu"
+# - DEFINE UMA LOGO
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/button-icon -n -t string -s "org.xfce.panel.applicationsmenu"
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/show-button-title -n -t bool -s false
+# - AJUSTA BOTAO DE PERFIL DO MENU
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/profile-shape -n -t int -s 0
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/position-profile-alternate -n -t bool -s true
+    xfconf-query -c xfce4-panel -p /plugins/plugin-2/show-button-title -n -t bool -s false
+# - ADICIONA A VARIAVEL SEQUENCIAL DE PLUGINS
+adicionar_ao_painel 2
+    echo "Acao realizada."                
+    # ---------------------------
+
+    # 2. Unset/limpar o valor da variável de posicao $1
+    # O comando shift remove o primeiro argumento, fazendo $2 virar $1, etc.
+    # Mas como você quer especificamente "dar unset", definimos como nulo:
+    set -- "${@:2}"
+    echo "Valor de \$1 limpo."
+else
+# --- 2. MENU ---
+# - CRIA O PLUGIN
+xfconf-query -c xfce4-panel -p /plugins/plugin-2 -n -t string -s "applicationsmenu"
+# - OCULTA TEXTO DO BOTAO DO MENU
+xfconf-query -c xfce4-panel -p /plugins/plugin-2/show-button-title -n -t bool -s false
+# - ADICIONA A VARIAVEL SEQUENCIAL DE PLUGINS
+adicionar_ao_painel 2
+    echo "Argumento não é 2 (ou não foi fornecido)."
+fi
+
+# --- 3. SEPARADOR (Esquerda) ---
+# - CRIA O PLUGIN
+xfconf-query -c xfce4-panel -p /plugins/plugin-3 -n -t string -s "separator"
+# - DEFINE APARENCIA TRANSPARENTE
+xfconf-query -c xfce4-panel -p /plugins/plugin-3/style -n -t int -s 0
+# - ADICIONA A VARIAVEL SEQUENCIAL DE PLUGINS
+adicionar_ao_painel 3
+
+# --- 4. OCULTAR JANELAS ---
+xfconf-query -c xfce4-panel -p /plugins/plugin-4 -n -t string -s "showdesktop"
+adicionar_ao_painel 4
+
+# --- 5. SEPARADOR (Esquerda) ---
+# - CRIA O PLUGIN
+xfconf-query -c xfce4-panel -p /plugins/plugin-5 -n -t string -s "separator"
+# - DEFINE APARENCIA TRANSPARENTE
+xfconf-query -c xfce4-panel -p /plugins/plugin-5/style -n -t int -s 0
+# - ADICIONA A VARIAVEL SEQUENCIAL DE PLUGINS
+adicionar_ao_painel 5
+
+# --- 6. LOOP DE LANÇADORES ---
+ID_CONTADOR=6
+while IFS= read -r DESKTOP_FILE || [ -n "$DESKTOP_FILE" ]; do
+    [ -z "$DESKTOP_FILE" ] && continue
+    
+    xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "launcher"
+    xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/items" -n -t string -s "$DESKTOP_FILE" -a
+    
+    adicionar_ao_painel $ID_CONTADOR
+    ((ID_CONTADOR++))
+done < "$LISTA"
+
+# --- 7. SEPARADOR EXPANSÍVEL (Direita) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/expand" -n -t bool -s true
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 8. ABAS ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "docklike"
+# xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "tasklist"
+# xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/show-labels" -n -t bool -s false
+# xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/grouping" -n -t bool -s true
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 9. SEPARADOR (Esquerda) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 10. ÁREA DE TRABALHO (Direita) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "pager"
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 11. SEPARADOR (Esquerda) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 12. VOLUME (pulseaudio) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "pulseaudio"
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 13. SEPARADOR (Esquerda) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 14. RELÓGIO ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "clock"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/mode" -n -t int -s 2
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# --- 15. SEPARADOR (Direita) ---
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "separator"
+xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/style" -n -t int -s 0
+adicionar_ao_painel $ID_CONTADOR
+((ID_CONTADOR++))
+
+# ------------------------------
+
+# --- CONFIGURAÇÕES VISUAIS (Sempre com -n e -t após o reset) ---
+xfconf-query -c xfce4-panel -p /panels/panel-1/size -n -t int -s 36
+xfconf-query -c xfce4-panel -p /panels/panel-1/length -n -t int -s 100
+xfconf-query -c xfce4-panel -p /panels/panel-1/position -n -t string -s "p=10;x=0;y=0"
+xfconf-query -c xfce4-panel -p /panels/panel-1/position-locked -n -t bool -s true
+xfconf-query -c xfce4-panel -p /panels/panel-1/length-adjust -n -t bool -s false
+xfconf-query -c xfce4-panel -p /panels/panel-1/disable-struts -n -t bool -s true
+xfconf-query -c xfce4-panel -p /panels/panel-1/autohide-behavior -n -t int -s 1
+
+# --- CONFIGURAÇÕES EXTRAS ---
+# 1. Velocidade de ENTRADA (Aparecer) - Ex: 150ms para ser rápido
+xfconf-query -c xfce4-panel -p /panels/panel-1/enter-opacity-duration -n -t int -s 150
+
+# 2. Velocidade de SAÍDA (Esconder) - Ex: 250ms para um sumiço suave
+xfconf-query -c xfce4-panel -p /panels/panel-1/leave-opacity-duration -n -t int -s 250
+
+# 3. Delay para começar a esconder (Tempo que ele espera após você tirar o mouse)
+# Um valor baixo (300ms) torna o painel mais "esperto"
+xfconf-query -c xfce4-panel -p /panels/panel-1/popdown-delay -n -t int -s 300
+
+# 4. Delay para aparecer (Evita que o painel suba se você só encostar sem querer)
+xfconf-query -c xfce4-panel -p /panels/panel-1/popup-delay -n -t int -s 100
+
+# OBRIGATÓRIO COMPOSITOR DE JANELAS (reduz o desempenho)
+# Opacidade quando o mouse NÃO está em cima (0 a 100)
+# xfconf-query -c xfce4-panel -p /panels/panel-1/background-alpha -n -t int -s 80
+# Opacidade quando o mouse ESTÁ em cima (Fica sólido ao interagir)
+# xfconf-query -c xfce4-panel -p /panels/panel-1/enter-opacity -n -t int -s 100
+
+# ------------------------------
+
+# ==========================================
+#               CONSTRUÇÃO PANEL 2
+# ==========================================
+
+echo "
+--------------------------------------
+       RECONTRUTOR PAINEL 2
+--------------------------------------"
+
+# Mudamos o alvo e limpamos a lista temporária para o novo painel
+PAINEL_ALVO="panel-2"
+LISTA_DE_IDS=""
+ID_CONTADOR=$(cat ~/carrinho_panel.txt); ((ID_CONTADOR++))
+LISTA="$HOME/caminhos_p2.txt" # <- LISTA DE .DESKTOP
+
+# Aplica as configurações físicas do seu Panel 2
+xfconf-query -c xfce4-panel -p /panels/panel-2/mode -n -t int -s 2
+xfconf-query -c xfce4-panel -p /panels/panel-2/nrows -n -t int -s 3
+xfconf-query -c xfce4-panel -p /panels/panel-2/size -n -t int -s 30
+xfconf-query -c xfce4-panel -p /panels/panel-2/length -n -t int -s 20
+xfconf-query -c xfce4-panel -p /panels/panel-2/length-adjust -n -t bool -s true
+xfconf-query -c xfce4-panel -p /panels/panel-2/border-width -n -t uint -s 5
+xfconf-query -c xfce4-panel -p /panels/panel-2/autohide-behavior -n -t int -s 2
+xfconf-query -c xfce4-panel -p /panels/panel-2/output-name -n -t string -s "builtin"
+xfconf-query -c xfce4-panel -p /panels/panel-2/position -n -t string -s "p=4;x=0;y=0"
+xfconf-query -c xfce4-panel -p /panels/panel-2/position-locked -n -t bool -s true
+
+docking() {
+# O loop pega o ID_CONTADOR exatamente de onde o Panel 1 parou e roda 9 vezes
+for i in {1..9}; do
+    xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "showdesktop"
+    adicionar_ao_painel $ID_CONTADOR
+    ((ID_CONTADOR++))
+echo "$ID_CONTADOR" > ~/carrinho_panel.txt # <- SALVA O ID ATUAL EM UM ARQUIVO
+echo "$ID_CONTADOR"
+done
+}
+
+[ ! -z "$(cat "$LISTA" | tr -d '[:space:]')" ] || { docking; echo 'A saida estava vazia ou continha apenas espacos/quebras de linha'; }
+
+# --- LOOP DE LANÇADORES ---
+while IFS= read -r DESKTOP_FILE || [ -n "$DESKTOP_FILE" ]; do
+    [ -z "$DESKTOP_FILE" ] && continue
+    
+    xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR" -n -t string -s "launcher"
+    xfconf-query -c xfce4-panel -p "/plugins/plugin-$ID_CONTADOR/items" -n -t string -s "$DESKTOP_FILE" -a
+    
+    adicionar_ao_painel $ID_CONTADOR
+    ((ID_CONTADOR++))
+done < "$LISTA"
+
+# --- INICIALIZAÇÃO FINAL ---
+echo "Processo de configurar painel terminado!"
+xfce4-panel &
+EOFPANEL
+EOFO
