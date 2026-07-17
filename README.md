@@ -64,6 +64,10 @@ OPERADORES FAZEM O PAPEL DE LER A SAÍDA DE ERRO, SE FOR POSITIVO `&&` OU SE FOR
 ## Versão de teste: 
 - Essa versão não faz parte dos releases, porém foi baseada neles. Agora você pode executar logo após instalar o Termux, pois o `curl` é basicamente nativo do Termux.
 - Eu diria que esse foi o script mais bem elaborado desse repositório, juntando tudo que já tinha e melhorando oque já existia. Porém ainda tem erros bobos que eu não irei arruma. Desculpe.
+
+---
+
+- Versão 1
 ```sh
 # Dessa vez eu brinquei com o código, hehe..
 curl --progress-bar -LO https://raw.githubusercontent.com/diogoeae1/type_proot_install/refs/heads/main/control_install.txt && sh control_install.txt all:local
@@ -83,6 +87,18 @@ curl --progress-bar -LO https://raw.githubusercontent.com/diogoeae1/type_proot_i
 - | all:local <- instala tudo que o script tem a oferecer usando o argumento local
 - | all <- instala tudo que o script fornece só que compila localmente o box64/86
 - | log <- auto-explicativo, mostra o conteúdo do arquivo de registro final resumido, mas ele está incompleto
+- <
+
+---
+
+- Versão 2
+```sh
+# Eu removi a brincadeira e resolvi a maioria dos problemas lógicos do código nessa correcao.
+curl --progress-bar -LO https://raw.githubusercontent.com/diogoeae1/type_proot_install/refs/heads/test/control_installs.txt && sh control_installs.txt all:local
+```
+- > O que mudou:
+- | Agora o argumento `KEY/KEYS` virou obsoleto e não pode ser mais utilizado junto com o `sistema de criptografia via zip`. Foi removido devido a não ser mais necessário.
+- | Correção no gerador de scripts, pois extra.md estava comprometido devido a erros lógicos usando `EOF`.
 - <
 
 ---
